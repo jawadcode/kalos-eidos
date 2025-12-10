@@ -2,11 +2,11 @@
 #define KALOS_EIDOS_CLI_H
 
 #include <optional>
-#include <string_view>
+#include <string>
 
 struct Args {
-    std::string_view source_filepath;
-    std::optional<std::string_view> out_filepath;
+    std::string source_file_path;
+    std::optional<std::string> out_file_path;
 
     Args(int argc, char *argv[]);
 };
