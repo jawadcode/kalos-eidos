@@ -2,7 +2,7 @@
   description = "Following Along with the LLVM Kaleidoscope Tutorial";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
 
     # Externally extensible flake systems. See <https://github.com/nix-systems/nix-systems>.
     systems.url = "github:nix-systems/default";
