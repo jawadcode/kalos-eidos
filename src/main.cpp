@@ -1,6 +1,13 @@
-#include <iostream>
+#include <print>
+
+#include "cli.h"
+#include "parser.h"
 
 auto main(int argc, char *argv[]) -> int {
-  std::cout << "Hello World" << std::endl;
-  return 0;
+    Args args(argc, argv);
+
+    std::println("Kalos Eidos Compiler v0.1.0");
+
+    parse("hi");
+    return 0;
 }

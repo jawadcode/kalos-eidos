@@ -1,11 +1,3 @@
-project(
-  'clam',
-  'cpp',
-  default_options: ['warning_level=3', 'cpp_std=c++20'],
-)
+project('clam', 'cpp', default_options: ['warning_level=3', 'cpp_std=c++23'])
 
-executable(
-  'kalos-eidos',
-  sources: ['src/main.cpp', 'src/lexer.cpp'],
-  implicit_include_directories: false,
-)
+executable('kalos-eidos', sources: ['src/parser.cpp', 'src/cli.cpp', 'src/main.cpp'])
