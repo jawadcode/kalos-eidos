@@ -6,6 +6,7 @@
 #include <print>
 
 #include "cli.h"
+
 #include "parser.h"
 
 // Source - https://stackoverflow.com/a/116220
@@ -45,6 +46,7 @@ auto main(int argc, char *argv[]) -> int {
     const std::string source_file_content =
         std::move(*maybe_source_file_content);
 
-    parse(source_file_content);
+    auto parser = Parser(source_file_content);
+    parser.parse();
     return 0;
 }

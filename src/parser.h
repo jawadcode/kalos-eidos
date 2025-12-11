@@ -1,29 +1,18 @@
-#ifndef KALOS_EIDOS_LEXER_H
-#define KALOS_EIDOS_LEXER_H
+#ifndef KALOS_EIDOS_PARSER_H
+#define KALOS_EIDOS_PARSER_H
+
+#include "lexer.h"
 
 #include <string_view>
 
-enum TokenKind {
-    TOK_DEF = 1,
-    TOK_EXTERN = 2,
-    TOK_IDENT = 3,
-    TOK_NUMBER = 4,
-    TOK_EOF = -1,
-};
-
-union TokenData {
-    std::string_view current_ident;
-    double number_value;
-};
-
-class ParseState {
-    const std::string_view source;
+class Parser {
+    std::string_view source;
+    Lexer lexer;
 
   public:
-    TokenKind current_token;
-    TokenData current_token_data;
+    Parser(std::string_view src);
+
+    void parse();
 };
 
-void parse(std::string_view source);
-
-#endif /* KALOS_EIDOS_LEXER_H */
+#endif /* KALOS_EIDOS_PARSER_H */
