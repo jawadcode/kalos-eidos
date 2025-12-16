@@ -54,6 +54,8 @@ auto Lexer::next_kind() -> TokenKind {
             return TokenKind::TOK_LPAREN;
         case ')':
             return TokenKind::TOK_RPAREN;
+        case ',':
+            return TokenKind::TOK_COMMA;
         case '+':
             return TokenKind::TOK_ADD;
         case '-':
@@ -131,37 +133,33 @@ auto Lexer::skip_whitespace() -> void {
     }
 }
 
-TokenKind::TokenKind(Kind kind) : kind_(kind) {}
-
-TokenKind::operator TokenKind::Kind() const { return kind_; }
-
-const std::string TokenKind::to_string() const {
-    switch (kind_) {
-    case TOK_DEF:
+const std::string tokenkind_to_string(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::TOK_DEF:
         return "'def'";
-    case TOK_EXTERN:
+    case TokenKind::TOK_EXTERN:
         return "'extern'";
-    case TOK_IDENT:
+    case TokenKind::TOK_IDENT:
         return "identifier";
-    case TOK_NUMBER:
+    case TokenKind::TOK_NUMBER:
         return "numeric literal";
-    case TOK_ADD:
+    case TokenKind::TOK_ADD:
         return "'+'";
-    case TOK_SUB:
+    case TokenKind::TOK_SUB:
         return "'-'";
-    case TOK_MUL:
+    case TokenKind::TOK_MUL:
         return "'*'";
-    case TOK_DIV:
+    case TokenKind::TOK_DIV:
         return "'/'";
-    case TOK_LPAREN:
+    case TokenKind::TOK_LPAREN:
         return "'('";
-    case TOK_RPAREN:
+    case TokenKind::TOK_RPAREN:
         return "')'";
-    case TOK_COMMA:
+    case TokenKind::TOK_COMMA:
         return "','";
-    case TOK_EOF:
+    case TokenKind::TOK_EOF:
         return "EOF";
-    case TOK_ERR:
+    case TokenKind::TOK_ERR:
         return "invalid token";
     }
 }

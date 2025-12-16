@@ -11,6 +11,7 @@
 #include "cli.h"
 
 #include "parser.h"
+#include "src/lexer.h"
 
 // Source - https://stackoverflow.com/a/116220
 // Posted by Konrad Rudolph, modified by community. See post 'Timeline' for
@@ -53,7 +54,7 @@ auto main(int argc, char *argv[]) -> int {
     const std::string source_file_content =
         std::move(*maybe_source_file_content);
     std::println(R"(Input:
-""""{}"""")",
+"""{}""")",
                  source_file_content);
     auto parser = Parser(source_file_content);
     auto parse_result = parser.parse();
@@ -64,7 +65,7 @@ auto main(int argc, char *argv[]) -> int {
         auto err = parse_result.error();
         std::println("\nSyntaxError - at: {}..{}, expected: {}, got: {}",
                      err.first.start, err.first.end, err.second.expected,
-                     err.second.got.to_string());
+                     tokenkind_to_string(err.second.got));
     }
     return 0;
 }

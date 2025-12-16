@@ -4,41 +4,32 @@
 #include "utils.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <string>
 #include <string_view>
 
 // All this just for string conversion 😭
-class TokenKind {
-  public:
-    enum Kind : std::uint8_t {
-        TOK_DEF,
-        TOK_EXTERN,
+enum class TokenKind {
+    TOK_DEF,
+    TOK_EXTERN,
 
-        TOK_IDENT,
-        TOK_NUMBER,
+    TOK_IDENT,
+    TOK_NUMBER,
 
-        TOK_ADD,
-        TOK_SUB,
-        TOK_MUL,
-        TOK_DIV,
+    TOK_ADD,
+    TOK_SUB,
+    TOK_MUL,
+    TOK_DIV,
 
-        TOK_LPAREN,
-        TOK_RPAREN,
-        TOK_COMMA,
+    TOK_LPAREN,
+    TOK_RPAREN,
+    TOK_COMMA,
 
-        TOK_EOF,
-        TOK_ERR,
-    };
+    TOK_EOF,
+    TOK_ERR,
 
-    TokenKind(Kind kind);
-    operator Kind() const;
-
-    const std::string to_string() const;
-
-  private:
-    const Kind kind_;
 };
+
+const std::string tokenkind_to_string(TokenKind kind);
 
 using Token = span::Spanned<TokenKind>;
 
