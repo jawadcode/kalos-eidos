@@ -90,25 +90,18 @@
       }
     );
 
-    devShells = eachSystem (
-      system: let
-        pkgs = nixpkgs.legacyPackages.${system};
-      in {
-        default = pkgs.mkShell.override {stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.clang19Stdenv;} {
-          # Want to avoid duplication
-          # inputsFrom = lib.attrValues self.packages.${system};
-          nativeBuildInputs = [pkgs.llvmPackages_19.clang-tools];
-          packages = with pkgs; [
-            llvmPackages_19.libllvm # For `llvm-symbolizer`
-            lldb_19
-            meson
-            ninja
-            clang-analyzer
-            mesonlsp
-          ];
-          # ASAN_SYMBOLIZER_PATH = "${lib.getExe' pkgs.llvm_19 "llvm-symbolizer"}";
-        };
-      }
-    );
+    devShells = eachSystem (system: let
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      default = pkgs.mkShell.override {stdenv = pkgs.clang19Stdenv;} {
+        inputsFrom = lib.attrValues self.packages.${system};
+        nativeBuildInputs = [pkgs.llvmPackages_19.clang-tools];
+        # `llvmPackages_19.libllvm` is for `llvm-symbolizer`
+        packages = with pkgs; [llvmPackages_19.libllvm llvmPackages_19.bintools lldb_19 meson ninja clang-analyzer mesonlsp];
+        # ASAN_SYMBOLIZER_PATH = "${lib.getExe' pkgs.llvm_19 "llvm-symbolizer"}";
+        CC_LD = "lld";
+        CXX_LD = "lld";
+      };
+    });
   };
 }

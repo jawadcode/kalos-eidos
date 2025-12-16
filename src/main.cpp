@@ -1,5 +1,8 @@
+#include <cctype>
+#include <clocale>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
 #include <ios>
 #include <optional>
@@ -33,6 +36,10 @@ auto read_file(const std::string_view path) -> std::optional<std::string> {
 }
 
 auto main(int argc, char *argv[]) -> int {
+    // I'm lazy and will be using locale-sensitive character classification
+    // functions, which means we'll want to have consistent behaviour regardless
+    // of system locale.
+    std::setlocale(LC_ALL, "C");
     const Args args(argc, argv);
 
     std::println("Kalos Eidos Compiler v0.1.0");
@@ -45,8 +52,19 @@ auto main(int argc, char *argv[]) -> int {
     }
     const std::string source_file_content =
         std::move(*maybe_source_file_content);
-
+    std::println(R"(Input:
+""""{}"""")",
+                 source_file_content);
     auto parser = Parser(source_file_content);
-    parser.parse();
+    auto parse_result = parser.parse();
+    if (parse_result.has_value()) {
+        auto ast = std::move(parse_result.value());
+        std::println("\nOutput:\n{}", ast->to_string());
+    } else {
+        auto err = parse_result.error();
+        std::println("\nSyntaxError - at: {}..{}, expected: {}, got: {}",
+                     err.first.start, err.first.end, err.second.expected,
+                     err.second.got.to_string());
+    }
     return 0;
 }
