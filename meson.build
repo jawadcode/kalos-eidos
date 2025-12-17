@@ -1,4 +1,4 @@
-project('clam', 'cpp', default_options: ['warning_level=3', 'cpp_std=c++23'])
+project('kalos-eidos', 'cpp', default_options: ['warning_level=3', 'cpp_std=c++23'])
 
 executable(
   'kalos-eidos',

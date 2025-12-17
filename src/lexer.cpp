@@ -43,7 +43,7 @@ auto Lexer::next_kind() -> TokenKind {
     if (this->is_at_end())
         return TokenKind::TOK_EOF;
 
-    auto ch = this->advance();
+    auto ch = this->next_char();
     if (is_ident(ch))
         return this->ident();
     else if (std::isdigit(ch))
@@ -64,6 +64,30 @@ auto Lexer::next_kind() -> TokenKind {
             return TokenKind::TOK_MUL;
         case '/':
             return TokenKind::TOK_DIV;
+        case '<':
+            if (this->peek_char() == '=') {
+                this->skip_char();
+                return TokenKind::TOK_LEQ;
+            } else
+                return TokenKind::TOK_LT;
+        case '>':
+            if (this->peek_char() == '=') {
+                this->skip_char();
+                return TokenKind::TOK_GEQ;
+            } else
+                return TokenKind::TOK_GT;
+        case '=':
+            if (this->peek_char() == '=') {
+                this->skip_char();
+                return TokenKind::TOK_EQ;
+            } else
+                return TokenKind::TOK_ERR;
+        case '!':
+            if (this->peek_char() == '=') {
+                this->skip_char();
+                return TokenKind::TOK_NEQ;
+            } else
+                return TokenKind::TOK_ERR;
         default:
             return TokenKind::TOK_ERR;
         }
@@ -111,7 +135,7 @@ auto Lexer::peek_char() const -> char {
         return this->source[this->current];
 }
 
-auto Lexer::advance() -> char { return this->source[this->current++]; }
+auto Lexer::next_char() -> char { return this->source[this->current++]; }
 
 auto Lexer::checked_next() -> char {
     if (this->is_at_end())
