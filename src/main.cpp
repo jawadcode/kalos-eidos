@@ -10,8 +10,9 @@
 
 #include "cli.h"
 
+#include "lexer.h"
 #include "parser.h"
-#include "src/lexer.h"
+#include "swl/variant.hpp"
 
 // Source - https://stackoverflow.com/a/116220
 // Posted by Konrad Rudolph, modified by community. See post 'Timeline' for
@@ -53,19 +54,23 @@ auto main(int argc, char *argv[]) -> int {
     }
     const std::string source_file_content =
         std::move(*maybe_source_file_content);
-    std::println(R"(Input:
+    std::println(R"(
+Input:
 """{}""")",
                  source_file_content);
-    auto parser = Parser(source_file_content);
-    auto parse_result = parser.parse();
+    auto parser = Parser(args.source_file_path, source_file_content);
+    auto parse_result = parser.parse_file();
     if (parse_result.has_value()) {
-        auto ast = std::move(parse_result.value());
-        std::println("\nOutput:\n{}", ast->to_string());
+        std::println("\nOutput:");
+        auto file = std::move(parse_result.value());
+        std::println("# File '{}'", file.file_path);
+        for (auto &item : file.items)
+            std::println("{}", swl::visit(ast::ItemPrinter{}, item));
     } else {
         auto err = parse_result.error();
         std::println("\nSyntaxError - at: {}..{}, expected: {}, got: {}",
                      err.first.start, err.first.end, err.second.expected,
-                     tokenkind_to_string(err.second.got));
+                     kind_to_string(err.second.got));
     }
     return 0;
 }

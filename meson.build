@@ -9,4 +9,5 @@ executable(
     'src/cli.cpp',
     'src/main.cpp',
   ],
+  include_directories: include_directories('include'),
 )

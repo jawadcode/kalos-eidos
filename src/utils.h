@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <string_view>
 
 namespace span {
@@ -11,7 +12,7 @@ struct Span {
     std::size_t start;
     std::size_t end;
 
-    auto substr(std::string_view source) const -> std::string_view;
+    auto source(std::string_view source) const -> std::string_view;
 
     auto operator+(Span rhs) const -> Span {
         return {.start = std::min(this->start, rhs.start),
@@ -36,5 +37,8 @@ template <class T> struct Spanned {
     }
 };
 }; // namespace span
+
+// epic troll
+template <typename T> using Box = std::unique_ptr<T>;
 
 #endif

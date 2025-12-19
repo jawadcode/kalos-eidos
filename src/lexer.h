@@ -18,6 +18,7 @@ enum class TokenKind {
     TOK_LPAREN,
     TOK_RPAREN,
     TOK_COMMA,
+    TOK_SEMI,
 
     TOK_ADD,
     TOK_SUB,
@@ -36,7 +37,7 @@ enum class TokenKind {
 
 };
 
-const std::string tokenkind_to_string(TokenKind kind);
+const std::string kind_to_string(TokenKind kind);
 
 using Token = span::Spanned<TokenKind>;
 

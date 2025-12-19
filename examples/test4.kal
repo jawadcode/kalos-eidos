@@ -1,0 +1,2 @@
+extern sin(a);
+def foo(x y) sin(x) + sin(y);
