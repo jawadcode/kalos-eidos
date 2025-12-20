@@ -23,69 +23,41 @@
     packages = eachSystem (
       system: let
         pkgs = nixpkgs.legacyPackages.${system};
+        baseOpts = rec {
+          pname = "kalos-eidos";
+          version = "0.1.0";
+          src = ./.;
+          outputs = ["out" "dev"];
+          nativeBuildInputs = with pkgs; [meson ninja llvmPackages_19.libllvm libxml2];
+          installPhase = ''
+            mkdir -p $out/bin/
+            cp ${pname} $out/bin/
+          '';
+          meta = {
+            homepage = "https://github.com/jawadcode/kalos-eidos";
+            license = [pkgs.lib.licenses.mit];
+            maintainers = ["Jawad W. Ahmed"];
+          };
+        };
       in rec {
-        kalos-eidos-debug = pkgs.clang19Stdenv.mkDerivation rec {
-          pname = "kalos-eidos";
-          version = "0.1.0";
-          src = ./.;
-          outputs = [
-            "out"
-            "dev"
-          ];
-
-          nativeBuildInputs = [
-            pkgs.meson
-            pkgs.ninja
-          ];
-          mesonBuildType = "debug";
-          # Without this we get a _FORTIFY_SOURCE related compiler warning from
-          # clang, so we need to disable it for debug builds, for a relevant GH
-          # issue, see: https://github.com/NixOS/nixpkgs/issues/60919
-          hardeningDisable = ["fortify"];
-          mesonFlags = ["-Db_sanitize=address,undefined"];
-          enableParallelBuilding = true;
-
-          installPhase = ''
-            mkdir -p $out/bin/
-            cp ${pname} $out/bin/
-          '';
-
-          meta = {
-            homepage = "https://github.com/jawadcode/kalos-eidos";
-            license = [pkgs.lib.licenses.mit];
-            maintainers = ["Jawad W. Ahmed"];
-          };
-        };
-        kalos-eidos-release = pkgs.clang19Stdenv.mkDerivation rec {
-          pname = "kalos-eidos";
-          version = "0.1.0";
-          src = ./.;
-          outputs = [
-            "out"
-            "dev"
-          ];
-
-          nativeBuildInputs = [
-            pkgs.meson
-            pkgs.ninja
-          ];
-          mesonBuildType = "release";
-          mesonFlags = [
-            "-Db_lto=true"
-            "-Dstrip=true"
-          ];
-
-          installPhase = ''
-            mkdir -p $out/bin/
-            cp ${pname} $out/bin/
-          '';
-
-          meta = {
-            homepage = "https://github.com/jawadcode/kalos-eidos";
-            license = [pkgs.lib.licenses.mit];
-            maintainers = ["Jawad W. Ahmed"];
-          };
-        };
+        kalos-eidos-debug = pkgs.clang19Stdenv.mkDerivation (baseOpts
+          // {
+            mesonBuildType = "debug";
+            # Without this we get a _FORTIFY_SOURCE related compiler warning from
+            # clang, so we need to disable it for debug builds, for a relevant GH
+            # issue, see: https://github.com/NixOS/nixpkgs/issues/60919
+            hardeningDisable = ["fortify"];
+            mesonFlags = ["-Db_sanitize=address,undefined"];
+            enableParallelBuilding = true;
+          });
+        kalos-eidos-release = pkgs.clang19Stdenv.mkDerivation (baseOpts
+          // {
+            mesonBuildType = "release";
+            mesonFlags = [
+              "-Db_lto=true"
+              "-Dstrip=true"
+            ];
+          });
         default = kalos-eidos-release;
       }
     );
@@ -98,6 +70,7 @@
         nativeBuildInputs = [pkgs.llvmPackages_19.clang-tools];
         # `llvmPackages_19.libllvm` is for `llvm-symbolizer`
         packages = with pkgs; [llvmPackages_19.libllvm llvmPackages_19.bintools lldb_19 meson ninja clang-analyzer mesonlsp];
+        # I think this is no longer necessary but I'll keep it around
         # ASAN_SYMBOLIZER_PATH = "${lib.getExe' pkgs.llvm_19 "llvm-symbolizer"}";
         CC_LD = "lld";
         CXX_LD = "lld";
