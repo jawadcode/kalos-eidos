@@ -1,11 +1,11 @@
 #ifndef KALOS_EIDOS_LEXER_H
 #define KALOS_EIDOS_LEXER_H
 
-#include "utils.h"
-
 #include <cstddef>
 #include <string>
 #include <string_view>
+
+#include "utils.h"
 
 // All this just for string conversion 😭
 enum class TokenKind {

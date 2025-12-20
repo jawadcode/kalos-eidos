@@ -7,12 +7,11 @@
 #include <ios>
 #include <optional>
 #include <print>
+#include <swl/variant.hpp>
 
 #include "cli.h"
-
 #include "lexer.h"
 #include "parser.h"
-#include "swl/variant.hpp"
 
 // Source - https://stackoverflow.com/a/116220
 // Posted by Konrad Rudolph, modified by community. See post 'Timeline' for

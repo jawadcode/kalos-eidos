@@ -1,8 +1,5 @@
 #include "parser.h"
 
-#include "lexer.h"
-#include "utils.h"
-
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -11,10 +8,12 @@
 #include <print>
 #include <string>
 #include <string_view>
-#include <utility>
-
 #include <swl/variant.hpp>
+#include <utility>
 #include <vector>
+
+#include "lexer.h"
+#include "utils.h"
 
 using namespace ast;
 
@@ -169,7 +168,7 @@ static auto get_op_precedence(BinOp::Op op) -> std::uint8_t {
     }
 }
 
-auto Parser::parse_rhs(std::uint8_t precedence, std::unique_ptr<ast::Expr> lhs)
+auto Parser::parse_rhs(std::uint8_t precedence, Box<ast::Expr> lhs)
     -> ParseResultBoxed<Expr> {
     while (this->at_any(BINARY_OPS)) {
         auto op = tk_to_bop(this->lexer.peek_token());
@@ -235,11 +234,11 @@ auto Parser::parse_ident_or_call() -> ParseResultBoxed<Expr> {
     if (this->at(TokenKind::TOK_LPAREN)) {
         this->advance(); // Skip '('
 
-        auto args = std::vector<std::unique_ptr<Expr>>();
+        auto args = std::vector<Box<Expr>>();
         while (!this->at(TokenKind::TOK_RPAREN)) {
             auto arg = this->parse_expr();
             if (arg.has_value())
-                args.push_back(std::unique_ptr(std::move(arg.value())));
+                args.push_back(Box(std::move(arg.value())));
             else
                 return std::unexpected(arg.error());
 

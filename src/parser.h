@@ -1,16 +1,16 @@
 #ifndef KALOS_EIDOS_PARSER_H
 #define KALOS_EIDOS_PARSER_H
 
-#include "lexer.h"
-#include "swl/variant.hpp"
-#include "utils.h"
-
 #include <array>
 #include <cstdint>
 #include <expected>
 #include <string_view>
+#include <swl/variant.hpp>
 #include <utility>
 #include <vector>
+
+#include "lexer.h"
+#include "utils.h"
 
 namespace ast {
 struct NumLit {

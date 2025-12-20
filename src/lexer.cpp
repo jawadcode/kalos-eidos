@@ -1,10 +1,11 @@
 #include "lexer.h"
-#include "utils.h"
 
 #include <cctype>
 #include <optional>
 #include <string_view>
 #include <utility>
+
+#include "utils.h"
 
 Lexer::Lexer(std::string_view source)
     : source(source), start(0), current(0), peeked(std::nullopt) {}
