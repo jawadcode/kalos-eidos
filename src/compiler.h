@@ -1,6 +1,7 @@
 #ifndef KALOS_EIDOS_COMPILER_H
 #define KALOS_EIDOS_COMPILER_H
 
+#include <cstddef>
 #include <expected>
 #include <map>
 #include <string>
@@ -68,7 +69,7 @@ class Compiler {
   public:
     Compiler();
 
-    auto compile_file(const ast::File &file) -> void;
+    auto compile_file(const ast::File &file) -> CompileResult<std::nullptr_t>;
 };
 
 #endif /* KALOS_EIDOS_COMPILER_H */

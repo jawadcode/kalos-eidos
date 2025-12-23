@@ -70,39 +70,45 @@ Compiler::Compiler() {
     pb.crossRegisterProxies(*this->lam, *this->fam, *this->cam, *this->mam);
 }
 
-auto Compiler::compile_file(const ast::File &file) -> void {
+auto Compiler::compile_file(const ast::File &file)
+    -> CompileResult<std::nullptr_t> {
     auto items = std::span(file.items);
     for (auto &item : items) {
-        auto res = swl::visit(
-            match{
-                [this](const ast::FunDef &fun_def) -> CompileResult<bool> {
-                    auto fun_res = this->compile_fun_def(fun_def);
-                    if (!fun_res.has_value())
-                        return std::unexpected(fun_res.error());
-                    else
-                        return true;
-                },
-                [this](const ast::Extern &external) -> CompileResult<bool> {
-                    auto ext_res = this->compile_proto(external.proto);
-                    if (!ext_res.has_value())
-                        return std::unexpected(ext_res.error());
-                    else
-                        return true;
-                },
-                [this](const ast::TopLevelExpr &tle) -> CompileResult<bool> {
-                    auto tle_res = this->compile_fun_def(tle.anon);
-                    if (!tle_res.has_value())
-                        return std::unexpected(tle_res.error());
-                    else
-                        return true;
-                },
-            },
-            item);
+        auto res =
+            swl::visit(match{
+                           [this](const ast::FunDef &fun_def)
+                               -> CompileResult<std::nullptr_t> {
+                               auto fun_res = this->compile_fun_def(fun_def);
+                               if (!fun_res.has_value())
+                                   return std::unexpected(fun_res.error());
+                               else
+                                   return nullptr;
+                           },
+                           [this](const ast::Extern &external)
+                               -> CompileResult<std::nullptr_t> {
+                               auto ext_res =
+                                   this->compile_proto(external.proto);
+                               if (!ext_res.has_value())
+                                   return std::unexpected(ext_res.error());
+                               else
+                                   return nullptr;
+                           },
+                           [this](const ast::TopLevelExpr &tle)
+                               -> CompileResult<std::nullptr_t> {
+                               auto tle_res = this->compile_fun_def(tle.anon);
+                               if (!tle_res.has_value())
+                                   return std::unexpected(tle_res.error());
+                               else
+                                   return nullptr;
+                           },
+                       },
+                       item);
         if (!res.has_value())
-            std::println(stderr, "Compile Error: {}", res.error());
+            return std::unexpected(res.error());
     }
 
     this->module->print(llvm::outs(), nullptr);
+    return nullptr;
 }
 
 auto Compiler::compile_fun_def(const ast::FunDef &fun_def)

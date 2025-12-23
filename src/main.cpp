@@ -5,6 +5,7 @@
 #include <ctime>
 #include <fstream>
 #include <ios>
+#include <iostream>
 #include <optional>
 #include <print>
 
@@ -70,10 +71,13 @@ Source:
 
         std::println("\nLLVM IR:");
         auto compiler = Compiler();
-        compiler.compile_file(file);
+        auto compile_res = compiler.compile_file(file);
+        if (!compile_res.has_value())
+            std::println(stderr, "\nCompileError: {}", compile_res.error());
     } else {
         auto err = parse_result.error();
-        std::println("\nSyntaxError - at: {}..{}, expected: {}, got: {}",
+        std::println(stderr,
+                     "\nSyntaxError - at: {}..{}, expected: {}, got: {}",
                      err.first.start, err.first.end, err.second.expected,
                      kind_to_string(err.second.got));
     }
