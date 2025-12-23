@@ -4,7 +4,7 @@ project(
   default_options: ['warning_level=3', 'cpp_std=c++23'],
 )
 
-llvm_dep = dependency('llvm', version: '>= 18.0', static: true)
+llvm_dep = dependency('llvm', version: '>= 19.0', static: true)
 
 executable(
   'kalos-eidos',

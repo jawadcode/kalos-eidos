@@ -7,9 +7,11 @@
 #include <ios>
 #include <optional>
 #include <print>
+
 #include <swl/variant.hpp>
 
 #include "cli.h"
+#include "compiler.h"
 #include "lexer.h"
 #include "parser.h"
 
@@ -54,17 +56,21 @@ auto main(int argc, char *argv[]) -> int {
     const std::string source_file_content =
         std::move(*maybe_source_file_content);
     std::println(R"(
-Input:
+Source:
 """{}""")",
                  source_file_content);
     auto parser = Parser(args.source_file_path, source_file_content);
     auto parse_result = parser.parse_file();
     if (parse_result.has_value()) {
-        std::println("\nOutput:");
+        std::println("\nAST:");
         auto file = std::move(parse_result.value());
         std::println("# File '{}'", file.file_path);
         for (auto &item : file.items)
             std::println("{}", swl::visit(ast::ItemPrinter{}, item));
+
+        std::println("\nLLVM IR:");
+        auto compiler = Compiler();
+        compiler.compile_file(file);
     } else {
         auto err = parse_result.error();
         std::println("\nSyntaxError - at: {}..{}, expected: {}, got: {}",

@@ -2,46 +2,173 @@
 
 #include <cstddef>
 #include <format>
-#include <llvm/ADT/APFloat.h>
-#include <llvm/IR/Constants.h>
-#include <llvm/IR/Value.h>
 #include <memory>
+#include <print>
 #include <vector>
 
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Verifier.h"
+#include <Kaleidoscope.h>
+#include <llvm/ADT/APFloat.h>
+#include <llvm/ADT/STLExtras.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/StandardInstrumentations.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/Reassociate.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#include <swl/variant.hpp>
 
 #include "parser.h"
-#include "swl/variant.hpp"
+#include "utils.h"
 
 Compiler::Compiler() {
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
+
+    this->jit = this->exit_on_err(llvm::orc::KaleidoscopeJIT::Create());
+
     this->context = std::make_unique<llvm::LLVMContext>();
     this->module = std::make_unique<llvm::Module>("KalosJIT", *this->context);
+    this->module->setDataLayout(this->jit->getDataLayout());
     this->builder = std::make_unique<llvm::IRBuilder<>>(*this->context);
+
+    this->fpm = std::make_unique<llvm::FunctionPassManager>();
+    this->lam = std::make_unique<llvm::LoopAnalysisManager>();
+    this->fam = std::make_unique<llvm::FunctionAnalysisManager>();
+    this->cam = std::make_unique<llvm::CGSCCAnalysisManager>();
+    this->mam = std::make_unique<llvm::ModuleAnalysisManager>();
+    this->pic = std::make_unique<llvm::PassInstrumentationCallbacks>();
+    this->si =
+        std::make_unique<llvm::StandardInstrumentations>(*this->context, true);
+    this->si->registerCallbacks(*this->pic, this->mam.get());
+
+    // Perform simple peep-hole opts such as bit-twiddling
+    this->fpm->addPass(llvm::InstCombinePass());
+    // Reassociate commutative expressions
+    this->fpm->addPass(llvm::ReassociatePass());
+    // Use the GVN algorithm to eliminate common sub-expressions
+    this->fpm->addPass(llvm::GVNPass());
+    // Simplify the control flow graph (deleting unreachable/dead blocks, etc)
+    this->fpm->addPass(llvm::SimplifyCFGPass());
+
+    auto pb = llvm::PassBuilder();
+    pb.registerModuleAnalyses(*this->mam);
+    pb.registerFunctionAnalyses(*this->fam);
+    pb.crossRegisterProxies(*this->lam, *this->fam, *this->cam, *this->mam);
 }
 
-auto Compiler::compile_file(const ast::File &file) -> void {}
+auto Compiler::compile_file(const ast::File &file) -> void {
+    auto items = std::span(file.items);
+    for (auto &item : items) {
+        auto res = swl::visit(
+            match{
+                [this](const ast::FunDef &fun_def) -> CompileResult<bool> {
+                    auto fun_res = this->compile_fun_def(fun_def);
+                    if (!fun_res.has_value())
+                        return std::unexpected(fun_res.error());
+                    else
+                        return true;
+                },
+                [this](const ast::Extern &external) -> CompileResult<bool> {
+                    auto ext_res = this->compile_proto(external.proto);
+                    if (!ext_res.has_value())
+                        return std::unexpected(ext_res.error());
+                    else
+                        return true;
+                },
+                [this](const ast::TopLevelExpr &tle) -> CompileResult<bool> {
+                    auto tle_res = this->compile_fun_def(tle.anon);
+                    if (!tle_res.has_value())
+                        return std::unexpected(tle_res.error());
+                    else
+                        return true;
+                },
+            },
+            item);
+        if (!res.has_value())
+            std::println(stderr, "Compile Error: {}", res.error());
+    }
+
+    this->module->print(llvm::outs(), nullptr);
+}
 
 auto Compiler::compile_fun_def(const ast::FunDef &fun_def)
-    -> CompileResult<llvm::Function> {}
+    -> CompileResult<llvm::Function *> {
+    auto fun = this->module->getFunction(fun_def.proto.name);
+
+    if (fun == nullptr) {
+        auto fun_res = this->compile_proto(fun_def.proto);
+        if (!fun_res.has_value())
+            return std::unexpected(fun_res.error());
+        fun = fun_res.value();
+    }
+
+    if (fun == nullptr)
+        return std::unexpected("idfk");
+
+    if (!fun->empty())
+        return std::unexpected(std::format("Function '{}' cannot be redefined",
+                                           fun_def.proto.name));
+
+    auto basic_block = llvm::BasicBlock::Create(*this->context, "entry", fun);
+    this->builder->SetInsertPoint(basic_block);
+
+    this->named_values.clear();
+    for (auto &arg : fun->args())
+        this->named_values[arg.getName()] = &arg;
+
+    auto ret_val_res = this->compile_expr(*fun_def.body);
+    if (!ret_val_res.has_value()) {
+        fun->eraseFromParent();
+        return std::unexpected(ret_val_res.error());
+    }
+    auto ret_val = ret_val_res.value();
+
+    // Finish off the function by emitting a return instruction
+    this->builder->CreateRet(ret_val);
+
+    // Validate the generated code, checking for consistency
+    llvm::verifyFunction(*fun);
+
+    // Optimise the function
+    this->fpm->run(*fun, *this->fam);
+
+    return fun;
+}
 
 auto Compiler::compile_proto(const ast::Proto &proto)
-    -> CompileResult<llvm::Function> {}
+    -> CompileResult<llvm::Function *> {
+    auto doubles = std::vector<llvm::Type *>(
+        proto.args.size(), llvm::Type::getDoubleTy(*this->context));
+    auto fun_type = llvm::FunctionType::get(
+        llvm::Type::getDoubleTy(*this->context), doubles, false);
+    auto fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage,
+                                      proto.name, this->module.get());
 
-template <class... Ts> struct overloaded : Ts... {
-    using Ts::operator()...;
-};
+    std::size_t index = 0;
+    for (auto &arg : fun->args())
+        arg.setName(proto.args[index++]);
+
+    return fun;
+}
 
 auto Compiler::compile_expr(const ast::Expr &expr)
     -> CompileResult<llvm::Value *> {
     return swl::visit(
-        overloaded{
+        match{
             [this](const ast::NumLit &num_lit) -> CompileResult<llvm::Value *> {
                 return this->compile_num_lit(num_lit);
             },

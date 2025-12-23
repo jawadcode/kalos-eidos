@@ -41,4 +41,8 @@ template <class T> struct Spanned {
 // epic troll
 template <typename T> using Box = std::unique_ptr<T>;
 
+template <class... Ts> struct match : Ts... {
+    using Ts::operator()...;
+};
+
 #endif
