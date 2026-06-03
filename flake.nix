@@ -2,7 +2,7 @@
   description = "Following Along with the LLVM Kaleidoscope Tutorial";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
     # Externally extensible flake systems. See <https://github.com/nix-systems/nix-systems>.
     systems.url = "github:nix-systems/default";
@@ -19,16 +19,21 @@
 
     # Iterate over each system, configured via the `systems` input.
     eachSystem = lib.genAttrs (import systems);
+
+    llvmPkgs' = pkgs: pkgs.llvmPackages_22;
+    clangStdenv' = llvmPkgs: llvmPkgs.stdenv;
   in {
     packages = eachSystem (
       system: let
         pkgs = nixpkgs.legacyPackages.${system};
+        llvmPkgs = llvmPkgs' pkgs;
+        clangStdenv = clangStdenv' llvmPkgs;
         baseOpts = rec {
           pname = "kalos-eidos";
           version = "0.1.0";
           src = ./.;
-          outputs = ["out" "dev"];
-          nativeBuildInputs = with pkgs; [meson ninja llvmPackages_19.libllvm libxml2];
+          outputs = ["out"];
+          nativeBuildInputs = with pkgs; [meson ninja llvmPkgs.libllvm libxml2];
           installPhase = ''
             mkdir -p $out/bin/
             cp ${pname} $out/bin/
@@ -40,7 +45,7 @@
           };
         };
       in rec {
-        kalos-eidos-debug = pkgs.clang19Stdenv.mkDerivation (baseOpts
+        kalos-eidos-debug = clangStdenv.mkDerivation (baseOpts
           // {
             mesonBuildType = "debug";
             # Without this we get a _FORTIFY_SOURCE related compiler warning from
@@ -50,7 +55,7 @@
             mesonFlags = ["-Db_sanitize=address,undefined"];
             enableParallelBuilding = true;
           });
-        kalos-eidos-release = pkgs.clang19Stdenv.mkDerivation (baseOpts
+        kalos-eidos-release = clangStdenv.mkDerivation (baseOpts
           // {
             mesonBuildType = "release";
             mesonFlags = [
@@ -64,12 +69,14 @@
 
     devShells = eachSystem (system: let
       pkgs = nixpkgs.legacyPackages.${system};
+      llvmPkgs = llvmPkgs' pkgs;
+      clangStdenv = clangStdenv' llvmPkgs;
     in {
-      default = pkgs.mkShell.override {stdenv = pkgs.clang19Stdenv;} {
+      default = pkgs.mkShell.override {stdenv = clangStdenv;} {
         inputsFrom = lib.attrValues self.packages.${system};
-        nativeBuildInputs = [pkgs.llvmPackages_19.clang-tools];
+        nativeBuildInputs = [llvmPkgs.clang-tools];
         # `llvmPackages_19.libllvm` is for `llvm-symbolizer`
-        packages = with pkgs; [llvmPackages_19.libllvm llvmPackages_19.bintools lldb_19 meson ninja clang-analyzer mesonlsp];
+        packages = with pkgs; [llvmPkgs.libllvm llvmPkgs.bintools llvmPkgs.lldb meson ninja clang-analyzer mesonlsp];
         # I think this is no longer necessary but I'll keep it around
         # ASAN_SYMBOLIZER_PATH = "${lib.getExe' pkgs.llvm_19 "llvm-symbolizer"}";
         CC_LD = "lld";
