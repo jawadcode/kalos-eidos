@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <expected>
+#include <llvm/IR/Value.h>
 #include <map>
 #include <string>
 
@@ -58,6 +59,8 @@ class Compiler {
     auto compile_fun_call(const ast::FunCall &fun_call)
         -> CompileResult<llvm::Value *>;
     auto compile_binary_op(const ast::BinOp &bin_op)
+        -> CompileResult<llvm::Value *>;
+    auto compile_if_expr(const ast::IfExpr &ife)
         -> CompileResult<llvm::Value *>;
     auto compile_expr(const ast::Expr &expr) -> CompileResult<llvm::Value *>;
 

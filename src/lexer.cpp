@@ -93,10 +93,17 @@ auto Lexer::ident() -> TokenKind {
 
     auto ident_source =
         this->source.substr(this->start, this->current - this->start);
+    // Ideally we would do a trie but there's not many keywords yet
     if (ident_source == "def") {
         return TokenKind::TOK_DEF;
     } else if (ident_source == "extern") {
         return TokenKind::TOK_EXTERN;
+    } else if (ident_source == "if") {
+        return TokenKind::TOK_IF;
+    } else if (ident_source == "then") {
+        return TokenKind::TOK_THEN;
+    } else if (ident_source == "else") {
+        return TokenKind::TOK_ELSE;
     } else {
         return TokenKind::TOK_IDENT;
     }

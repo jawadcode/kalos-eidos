@@ -258,6 +258,33 @@ auto Parser::parse_ident_or_call() -> ParseResultBoxed<Expr> {
         return std::make_unique<Expr>(Var{.name = name});
 }
 
+auto Parser::parse_if_expr() -> ParseResultBoxed<Expr> {
+    this->lexer.next_token();
+    auto cond_res = this->parse_expr();
+    if (!cond_res.has_value())
+        return std::unexpected(cond_res.error());
+
+    auto then_err = this->expect(TokenKind::TOK_THEN);
+    if (then_err.has_value())
+        return std::unexpected(then_err.value());
+
+    auto then_res = this->parse_expr();
+    if (!then_res.has_value())
+        return std::unexpected(cond_res.error());
+
+    auto else_err = this->expect(TokenKind::TOK_ELSE);
+    if (else_err.has_value())
+        return std::unexpected(else_err.value());
+
+    auto else_res = this->parse_expr();
+    if (!else_res.has_value())
+        return std::unexpected(else_res.error());
+
+    return std::make_unique<Expr>(IfExpr{.cond = std::move(cond_res.value()),
+                                         .then = std::move(then_res.value()),
+                                         .else_ = std::move(else_res.value())});
+}
+
 inline auto Parser::at(TokenKind expected) -> bool {
     return this->lexer.peek_token() == expected;
 }
@@ -337,6 +364,18 @@ auto ExprPrinter::operator()(const BinOp &kind) const -> std::string {
     res.append(bop_to_string(bin_op->op));
     res.push_back(' ');
     res.append(expr_to_string(*bin_op->rhs));
+    res.push_back(')');
+    return res;
+}
+
+auto ExprPrinter::operator()(const IfExpr &kind) const -> std::string {
+    auto ife = &kind;
+    std::string res = "(if ";
+    res.append(expr_to_string(*ife->cond));
+    res.append(" then ");
+    res.append(expr_to_string(*ife->then));
+    res.append(" else ");
+    res.append(expr_to_string(*ife->else_));
     res.push_back(')');
     return res;
 }

@@ -11,6 +11,9 @@
 enum class TokenKind {
     TOK_DEF,
     TOK_EXTERN,
+    TOK_IF,
+    TOK_THEN,
+    TOK_ELSE,
 
     TOK_IDENT,
     TOK_NUMBER,

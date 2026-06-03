@@ -1,4 +1,3 @@
-#include <cctype>
 #include <clocale>
 #include <cstdio>
 #include <cstdlib>

@@ -14,7 +14,7 @@
 #define LLVM_EXECUTIONENGINE_ORC_KALEIDOSCOPEJIT_H
 
 #include "llvm/ADT/StringRef.h"
-// #include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
 #include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
@@ -22,6 +22,7 @@
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/SelfExecutorProcessControl.h"
 #include "llvm/ExecutionEngine/Orc/Shared/ExecutorSymbolDef.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/DataLayout.h"
@@ -47,9 +48,10 @@ class KaleidoscopeJIT {
     KaleidoscopeJIT(std::unique_ptr<ExecutionSession> ES,
                     JITTargetMachineBuilder JTMB, DataLayout DL)
         : ES(std::move(ES)), DL(std::move(DL)), Mangle(*this->ES, this->DL),
-          ObjectLayer(
-              *this->ES,
-              []() { return std::make_unique<SectionMemoryManager>(); }),
+          ObjectLayer(*this->ES,
+                      [](const MemoryBuffer &) {
+                          return std::make_unique<SectionMemoryManager>();
+                      }),
           CompileLayer(*this->ES, ObjectLayer,
                        std::make_unique<ConcurrentIRCompiler>(std::move(JTMB))),
           MainJD(this->ES->createBareJITDylib("<main>")) {

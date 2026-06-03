@@ -1,6 +1,7 @@
 #include "compiler.h"
 
 #include <cstddef>
+#include <expected>
 #include <format>
 #include <memory>
 #include <print>
@@ -74,35 +75,34 @@ auto Compiler::compile_file(const ast::File &file)
     -> CompileResult<std::nullptr_t> {
     auto items = std::span(file.items);
     for (auto &item : items) {
-        auto res =
-            swl::visit(match{
-                           [this](const ast::FunDef &fun_def)
-                               -> CompileResult<std::nullptr_t> {
-                               auto fun_res = this->compile_fun_def(fun_def);
-                               if (!fun_res.has_value())
-                                   return std::unexpected(fun_res.error());
-                               else
-                                   return nullptr;
-                           },
-                           [this](const ast::Extern &external)
-                               -> CompileResult<std::nullptr_t> {
-                               auto ext_res =
-                                   this->compile_proto(external.proto);
-                               if (!ext_res.has_value())
-                                   return std::unexpected(ext_res.error());
-                               else
-                                   return nullptr;
-                           },
-                           [this](const ast::TopLevelExpr &tle)
-                               -> CompileResult<std::nullptr_t> {
-                               auto tle_res = this->compile_fun_def(tle.anon);
-                               if (!tle_res.has_value())
-                                   return std::unexpected(tle_res.error());
-                               else
-                                   return nullptr;
-                           },
-                       },
-                       item);
+        auto res = swl::visit(
+            match{[this](const ast::FunDef &fun_def)
+                      -> CompileResult<std::nullptr_t> {
+                      auto fun_res = this->compile_fun_def(fun_def);
+                      if (!fun_res.has_value())
+                          return std::unexpected(fun_res.error());
+                      else
+                          return nullptr;
+                  },
+                  [this](const ast::Extern &external)
+                      -> CompileResult<std::nullptr_t> {
+                      auto ext_res = this->compile_proto(external.proto);
+                      if (!ext_res.has_value())
+                          return std::unexpected(ext_res.error());
+                      else
+                          return nullptr;
+                  },
+                  [this](const ast::TopLevelExpr &tle)
+                      -> CompileResult<std::nullptr_t> {
+                      auto tle_res = this->compile_fun_def(tle.anon);
+                      if (!tle_res.has_value())
+                          return std::unexpected(tle_res.error());
+                      else
+                          return nullptr;
+                  },
+                  [this](const ast::IfExpr &ife)
+                      -> CompileResult<std::nullptr_t> { return nullptr; }},
+            item);
         if (!res.has_value())
             return std::unexpected(res.error());
     }
@@ -185,7 +185,9 @@ auto Compiler::compile_expr(const ast::Expr &expr)
             [this](const ast::BinOp &bin_op) {
                 return this->compile_binary_op(bin_op);
             },
-        },
+            [this](const ast::IfExpr &ife) {
+                return this->compile_if_expr(ife);
+            }},
         expr);
 }
 
@@ -270,4 +272,9 @@ auto Compiler::compile_binary_op(const ast::BinOp &bin_op)
         return this->builder->CreateUIToFP(
             lhs, llvm::Type::getDoubleTy(*this->context));
     }
+}
+
+auto Compiler::compile_if_expr(const ast::IfExpr &ife)
+    -> CompileResult<llvm::Value *> {
+    return std::unexpected("unimplemented");
 }

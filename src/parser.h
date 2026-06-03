@@ -25,13 +25,16 @@ struct FunCall;
 
 struct BinOp;
 
-using Expr = swl::variant<NumLit, Var, FunCall, BinOp>;
+struct IfExpr;
+
+using Expr = swl::variant<NumLit, Var, FunCall, BinOp, IfExpr>;
 
 struct ExprPrinter {
     auto operator()(const NumLit &kind) const -> std::string;
     auto operator()(const Var &kind) const -> std::string;
     auto operator()(const FunCall &kind) const -> std::string;
     auto operator()(const BinOp &kind) const -> std::string;
+    auto operator()(const IfExpr &kind) const -> std::string;
 };
 
 [[nodiscard]] auto expr_to_string(const Expr &expr) -> std::string;
@@ -56,6 +59,12 @@ struct BinOp {
     } op;
     Box<Expr> lhs;
     Box<Expr> rhs;
+};
+
+struct IfExpr {
+    Box<Expr> cond;
+    Box<Expr> then;
+    Box<Expr> else_;
 };
 
 struct Proto {
@@ -120,6 +129,7 @@ class Parser {
     auto parse_num_lit() -> ParseResultBoxed<ast::Expr>;
     auto parse_grouping() -> ParseResultBoxed<ast::Expr>;
     auto parse_ident_or_call() -> ParseResultBoxed<ast::Expr>;
+    auto parse_if_expr() -> ParseResultBoxed<ast::Expr>;
 
     inline auto at(TokenKind expected) -> bool;
     template <std::size_t N>
