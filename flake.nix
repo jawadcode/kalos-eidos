@@ -79,12 +79,9 @@
       default = pkgs.mkShell.override {stdenv = clangStdenv;} {
         inputsFrom = lib.attrValues self.packages.${system};
         nativeBuildInputs = [llvmPkgs.clang-tools];
-        # `llvmPackages_19.libllvm` is for `llvm-symbolizer`
         packages = with pkgs; [llvmPkgs.libllvm llvmPkgs.bintools llvmPkgs.lldb meson ninja clang-analyzer mesonlsp];
         # I think this is no longer necessary but I'll keep it around
         # ASAN_SYMBOLIZER_PATH = "${lib.getExe' pkgs.llvm_19 "llvm-symbolizer"}";
-        # CC_LD = "lld";
-        # CXX_LD = "lld";
       };
     });
   };
