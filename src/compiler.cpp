@@ -77,7 +77,7 @@ Compiler::Compiler() {
     pb.crossRegisterProxies(*this->lam, *this->fam, *this->cam, *this->mam);
 }
 
-auto Compiler::compile_file(const File &file) -> CompileResult<std::nullptr_t> {
+auto Compiler::compile_file(const File &file) -> CompileResult<void> {
     // clang-format off
     // auto custom_op_res = this->compile_fun_def(FunDef{
     //     .proto = { .name = "operator:", .args = { "x", "y" } },
@@ -90,27 +90,16 @@ auto Compiler::compile_file(const File &file) -> CompileResult<std::nullptr_t> {
 
     auto items = std::span(file.items);
     for (auto &item : items) {
-        auto res =
-            swl::visit(match{ [this](const FunDef &fun_def) -> CompileResult<std::monostate> {
-                                 auto fun_res = this->compile_fun_def(fun_def);
-                                 if (!fun_res.has_value()) return std::unexpected(fun_res.error());
-                                 else return std::monostate();
-                             },
-                              [this](const Extern &external) -> CompileResult<std::monostate> {
-                                  auto ext_res = this->compile_proto(external.proto);
-                                  if (!ext_res.has_value()) return std::unexpected(ext_res.error());
-                                  else return std::monostate();
-                              },
-                              [this](const TopLevelExpr &tle) -> CompileResult<std::monostate> {
-                                  auto tle_res = this->compile_fun_def(tle.anon);
-                                  if (!tle_res.has_value()) return std::unexpected(tle_res.error());
-                                  else return std::monostate();
-                              } },
-                       item);
-        if (!res.has_value()) return std::unexpected(res.error());
+        auto fun_res = swl::visit(
+            match{ [this](const FunDef &fun_def) { return this->compile_fun_def(fun_def); },
+                   [this](const Extern &external) { return this->compile_proto(external.proto); },
+                   [this](const TopLevelExpr &tle) { return this->compile_fun_def(tle.anon); } },
+            item);
+
+        if (!fun_res.has_value()) return std::unexpected(fun_res.error());
     }
 
-    return nullptr;
+    return {};
 }
 
 auto Compiler::print_module() const -> void { this->module->print(llvm::outs(), nullptr); }

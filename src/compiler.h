@@ -78,7 +78,7 @@ class Compiler {
   public:
     Compiler();
 
-    [[nodiscard]] auto compile_file(const ast::File &file) -> CompileResult<std::nullptr_t>;
+    [[nodiscard]] auto compile_file(const ast::File &file) -> CompileResult<void>;
 
     auto print_module() const -> void;
     auto write_module(const std::string &out_file_path) const -> void;
