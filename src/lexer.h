@@ -7,21 +7,25 @@
 
 #include "utils.h"
 
-// All this just for string conversion 😭
 enum class TokenKind {
     TOK_DEF,
     TOK_EXTERN,
     TOK_IF,
     TOK_THEN,
     TOK_ELSE,
+    TOK_FOR,
+    TOK_VAR,
+    TOK_IN,
 
     TOK_IDENT,
     TOK_NUMBER,
 
+    TOK_ASSIGN,
     TOK_LPAREN,
     TOK_RPAREN,
     TOK_COMMA,
     TOK_SEMI,
+    TOK_COLON,
 
     TOK_ADD,
     TOK_SUB,
@@ -37,7 +41,6 @@ enum class TokenKind {
 
     TOK_EOF,
     TOK_ERR,
-
 };
 
 const std::string kind_to_string(TokenKind kind);

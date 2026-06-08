@@ -1,7 +1,7 @@
-#include <clocale>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <format>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -39,10 +39,9 @@ auto read_file(const std::string_view path) -> std::optional<std::string> {
 }
 
 auto main(int argc, char *argv[]) -> int {
-    // I'm lazy and will be using locale-sensitive character classification
-    // functions, which means we'll want to have consistent behaviour regardless
-    // of system locale.
-    std::setlocale(LC_ALL, "C");
+    // Fairly sure that I don't use any locale-sensitive functions,
+    // but I'll leave this here just in case.
+    // std::setlocale(LC_ALL, "C");
     const Args args(argc, argv);
 
     std::println("Kalos Eidos Compiler v0.1.0");
@@ -73,6 +72,11 @@ Source:
         auto compile_res = compiler.compile_file(file);
         if (!compile_res.has_value())
             std::println(stderr, "\nCompileError: {}", compile_res.error());
+        else {
+            compiler.print_module();
+            if (args.out_file_path.has_value())
+                compiler.write_module(args.out_file_path.value());
+        }
     } else {
         auto err = parse_result.error();
         std::println(stderr,

@@ -55,6 +55,7 @@ auto Lexer::next_kind() -> TokenKind {
         case ')': return TokenKind::TOK_RPAREN;
         case ',': return TokenKind::TOK_COMMA;
         case ';': return TokenKind::TOK_SEMI;
+        case ':': return TokenKind::TOK_COLON;
         case '+': return TokenKind::TOK_ADD;
         case '-': return TokenKind::TOK_SUB;
         case '*': return TokenKind::TOK_MUL;
@@ -76,7 +77,7 @@ auto Lexer::next_kind() -> TokenKind {
                 this->skip_char();
                 return TokenKind::TOK_EQ;
             } else
-                return TokenKind::TOK_ERR;
+                return TokenKind::TOK_ASSIGN;
         case '!':
             if (this->peek_char() == '=') {
                 this->skip_char();
@@ -104,6 +105,12 @@ auto Lexer::ident() -> TokenKind {
         return TokenKind::TOK_THEN;
     } else if (ident_source == "else") {
         return TokenKind::TOK_ELSE;
+    } else if (ident_source == "for") {
+        return TokenKind::TOK_FOR;
+    } else if (ident_source == "var") {
+        return TokenKind::TOK_VAR;
+    } else if (ident_source == "in") {
+        return TokenKind::TOK_IN;
     } else {
         return TokenKind::TOK_IDENT;
     }
@@ -123,29 +130,29 @@ auto Lexer::number() -> TokenKind {
     return TokenKind::TOK_NUMBER;
 }
 
-auto Lexer::is_at_end() const -> bool {
+inline auto Lexer::is_at_end() const -> bool {
     return this->current == this->source.length();
 }
 
-auto Lexer::skip_char() -> void { this->current++; };
+inline auto Lexer::skip_char() -> void { this->current++; };
 
-auto Lexer::peek_char() const -> char {
+inline auto Lexer::peek_char() const -> char {
     if (this->is_at_end())
         return '\0';
     else
         return this->source[this->current];
 }
 
-auto Lexer::next_char() -> char { return this->source[this->current++]; }
+inline auto Lexer::next_char() -> char { return this->source[this->current++]; }
 
-auto Lexer::checked_next() -> char {
+inline auto Lexer::checked_next() -> char {
     if (this->is_at_end())
         return '\0';
     else
         return this->source[this->current++];
 }
 
-auto Lexer::skip_whitespace() -> void {
+inline auto Lexer::skip_whitespace() -> void {
     while (true) {
         auto peeked = this->peek_char();
         if (std::isspace(peeked)) {
@@ -162,12 +169,20 @@ const std::string kind_to_string(TokenKind kind) {
     switch (kind) {
     case TokenKind::TOK_DEF: return "'def'";
     case TokenKind::TOK_EXTERN: return "'extern'";
+    case TokenKind::TOK_IF: return "'if'";
+    case TokenKind::TOK_THEN: return "'then'";
+    case TokenKind::TOK_ELSE: return "'else'";
+    case TokenKind::TOK_FOR: return "'for'";
+    case TokenKind::TOK_VAR: return "'var'";
+    case TokenKind::TOK_IN: return "'in'";
     case TokenKind::TOK_IDENT: return "identifier";
     case TokenKind::TOK_NUMBER: return "numeric literal";
+    case TokenKind::TOK_ASSIGN: return "'='";
     case TokenKind::TOK_LPAREN: return "'('";
     case TokenKind::TOK_RPAREN: return "')'";
     case TokenKind::TOK_COMMA: return "','";
     case TokenKind::TOK_SEMI: return "';'";
+    case TokenKind::TOK_COLON: return "':'";
     case TokenKind::TOK_ADD: return "'+'";
     case TokenKind::TOK_SUB: return "'-'";
     case TokenKind::TOK_MUL: return "'*'";

@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <expected>
-#include <llvm/IR/Value.h>
 #include <map>
 #include <string>
 
@@ -15,10 +14,12 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Passes/StandardInstrumentations.h>
@@ -42,7 +43,7 @@ class Compiler {
     Box<llvm::Module> module;
     Box<llvm::IRBuilder<>> builder;
 
-    std::map<std::string_view, llvm::Value *> named_values;
+    std::map<std::string_view, llvm::AllocaInst *> named_values;
 
     Box<llvm::FunctionPassManager> fpm;
     Box<llvm::LoopAnalysisManager> lam;
@@ -54,25 +55,45 @@ class Compiler {
 
     llvm::ExitOnError exit_on_err;
 
-    auto compile_num_lit(const ast::NumLit &num_lit) -> llvm::Value *;
-    auto compile_var(const ast::Var &var) -> CompileResult<llvm::Value *>;
-    auto compile_fun_call(const ast::FunCall &fun_call)
-        -> CompileResult<llvm::Value *>;
-    auto compile_binary_op(const ast::BinOp &bin_op)
-        -> CompileResult<llvm::Value *>;
-    auto compile_if_expr(const ast::IfExpr &ife)
-        -> CompileResult<llvm::Value *>;
-    auto compile_expr(const ast::Expr &expr) -> CompileResult<llvm::Value *>;
+    [[nodiscard]] auto create_entry_block_alloca(llvm::Function *fun,
+                                                 llvm::StringRef name)
+        -> llvm::AllocaInst *;
 
-    auto compile_proto(const ast::Proto &proto)
+    [[nodiscard]] auto compile_num_lit(const ast::NumLit &num_lit)
+        -> llvm::Value *;
+    [[nodiscard]] auto compile_var(const ast::Var &var)
+        -> CompileResult<llvm::Value *>;
+    [[nodiscard]] auto compile_fun_call(const ast::FunCall &fun_call)
+        -> CompileResult<llvm::Value *>;
+    [[nodiscard]] auto compile_assign(const ast::BinOp &bin_op)
+        -> CompileResult<llvm::Value *>;
+    [[nodiscard]] auto compile_binary_op(const ast::BinOp &bin_op)
+        -> CompileResult<llvm::Value *>;
+    [[nodiscard]] auto compile_if_expr(const ast::IfExpr &ife)
+        -> CompileResult<llvm::Value *>;
+    [[nodiscard]] auto compile_for_expr(const ast::ForExpr &fore)
+        -> CompileResult<llvm::Value *>;
+    [[nodiscard]] auto compile_var_bind(const ast::VarExprBinding &bind,
+                                        llvm::Function *fun)
+        -> CompileResult<std::pair<std::string_view, llvm::AllocaInst *>>;
+    [[nodiscard]] auto compile_var_expr(const ast::VarExpr &var)
+        -> CompileResult<llvm::Value *>;
+    [[nodiscard]] auto compile_expr(const ast::Expr &expr)
+        -> CompileResult<llvm::Value *>;
+
+    [[nodiscard]] auto compile_proto(const ast::Proto &proto)
         -> CompileResult<llvm::Function *>;
-    auto compile_fun_def(const ast::FunDef &fun_def)
+    [[nodiscard]] auto compile_fun_def(const ast::FunDef &fun_def)
         -> CompileResult<llvm::Function *>;
 
   public:
     Compiler();
 
-    auto compile_file(const ast::File &file) -> CompileResult<std::nullptr_t>;
+    [[nodiscard]] auto compile_file(const ast::File &file)
+        -> CompileResult<std::nullptr_t>;
+
+    auto print_module() const -> void;
+    auto write_module(const std::string &out_file_path) const -> void;
 };
 
 #endif /* KALOS_EIDOS_COMPILER_H */

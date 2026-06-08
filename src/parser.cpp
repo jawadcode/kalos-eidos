@@ -2,10 +2,11 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstdint>
 #include <expected>
 #include <memory>
-#include <print>
+#include <span>
 #include <string>
 #include <string_view>
 #include <swl/variant.hpp>
@@ -77,8 +78,9 @@ auto Parser::parse_extern() -> ParseResult<Item> {
 auto Parser::parse_top_level_expr() -> ParseResult<Item> {
     return this->parse_expr().transform([](auto expr) {
         return TopLevelExpr{
-            .anon = FunDef{.proto = Proto{.name = "__anon_expr", .args = {}},
-                           .body = std::move(expr)}};
+            .anon =
+                FunDef{.proto = Proto{.name = "__top_level_expr", .args = {}},
+                       .body = std::move(expr)}};
     });
 }
 
@@ -95,7 +97,7 @@ auto Parser::parse_proto() -> ParseResult<Proto> {
     while (this->at(TokenKind::TOK_IDENT)) {
         auto arg = this->lexer.next_token().span.source(this->source);
         args.push_back(arg);
-        // no comma ??
+        // no comma ??, questionable syntax decision
     }
     auto rparen_err = this->expect(TokenKind::TOK_RPAREN);
     if (rparen_err.has_value())
@@ -122,22 +124,27 @@ auto Parser::parse_basic_expr() -> ParseResultBoxed<Expr> {
     switch (this->lexer.peek_token()) {
     case TokenKind::TOK_NUMBER: return this->parse_num_lit();
     case TokenKind::TOK_LPAREN: return this->parse_grouping();
+    case TokenKind::TOK_IF: return this->parse_if_expr();
+    case TokenKind::TOK_FOR: return this->parse_for_expr();
+    case TokenKind::TOK_VAR: return this->parse_var_expr();
     case TokenKind::TOK_IDENT: return this->parse_ident_or_call();
     default: return this->next_error<Box<Expr>>("expression");
     }
 }
 
-constexpr std::array<TokenKind, 10> BINARY_OPS = {
-    TokenKind::TOK_LT,  TokenKind::TOK_LEQ, TokenKind::TOK_GT,
-    TokenKind::TOK_GEQ, TokenKind::TOK_EQ,  TokenKind::TOK_NEQ,
-    TokenKind::TOK_ADD, TokenKind::TOK_SUB, TokenKind::TOK_MUL,
-    TokenKind::TOK_DIV,
+constexpr std::array<TokenKind, 12> BINARY_OPS = {
+    TokenKind::TOK_COLON, TokenKind::TOK_ASSIGN, TokenKind::TOK_LT,
+    TokenKind::TOK_LEQ,   TokenKind::TOK_GT,     TokenKind::TOK_GEQ,
+    TokenKind::TOK_EQ,    TokenKind::TOK_NEQ,    TokenKind::TOK_ADD,
+    TokenKind::TOK_SUB,   TokenKind::TOK_MUL,    TokenKind::TOK_DIV,
 };
 
 // Pre-Condition: `kind` must be a recognised binary operator
 static auto tk_to_bop(TokenKind kind) -> BinOp::Op {
     using Op = BinOp::Op;
     switch (kind) {
+    case TokenKind::TOK_COLON: return Op::BINOP_SEQ;
+    case TokenKind::TOK_ASSIGN: return Op::BINOP_ASS;
     case TokenKind::TOK_LT: return Op::BINOP_LT;
     case TokenKind::TOK_LEQ: return Op::BINOP_LEQ;
     case TokenKind::TOK_GT: return Op::BINOP_GT;
@@ -155,20 +162,22 @@ static auto tk_to_bop(TokenKind kind) -> BinOp::Op {
 static auto get_op_precedence(BinOp::Op op) -> std::uint8_t {
     using Op = BinOp::Op;
     switch (op) {
+    case Op::BINOP_SEQ: return 0;
+    case Op::BINOP_ASS: return 16;
     case Op::BINOP_LT:
     case Op::BINOP_LEQ:
     case Op::BINOP_GT:
     case Op::BINOP_GEQ:
     case Op::BINOP_EQ:
-    case Op::BINOP_NEQ: return 0;
+    case Op::BINOP_NEQ: return 32;
     case Op::BINOP_ADD:
-    case Op::BINOP_SUB: return 128;
+    case Op::BINOP_SUB: return 64;
     case Op::BINOP_MUL:
-    case Op::BINOP_DIV: return 255;
+    case Op::BINOP_DIV: return 128;
     }
 }
 
-auto Parser::parse_rhs(std::uint8_t precedence, Box<ast::Expr> lhs)
+auto Parser::parse_rhs(std::uint8_t precedence, Box<Expr> lhs)
     -> ParseResultBoxed<Expr> {
     while (this->at_any(BINARY_OPS)) {
         auto op = tk_to_bop(this->lexer.peek_token());
@@ -196,8 +205,8 @@ auto Parser::parse_rhs(std::uint8_t precedence, Box<ast::Expr> lhs)
                 rhs = std::move(next_rhs_res.value());
             }
         }
-
-        lhs = std::make_unique<Expr>(BinOp(op, std::move(lhs), std::move(rhs)));
+        lhs = std::make_unique<Expr>(
+            BinOp{.op = op, .lhs = std::move(lhs), .rhs = std::move(rhs)});
     }
 
     return lhs;
@@ -259,7 +268,7 @@ auto Parser::parse_ident_or_call() -> ParseResultBoxed<Expr> {
 }
 
 auto Parser::parse_if_expr() -> ParseResultBoxed<Expr> {
-    this->lexer.next_token();
+    this->advance();
     auto cond_res = this->parse_expr();
     if (!cond_res.has_value())
         return std::unexpected(cond_res.error());
@@ -285,6 +294,104 @@ auto Parser::parse_if_expr() -> ParseResultBoxed<Expr> {
                                          .else_ = std::move(else_res.value())});
 }
 
+auto Parser::parse_for_expr() -> ParseResultBoxed<Expr> {
+    this->advance();
+
+    auto counter_tok = this->lexer.next_token();
+    if (counter_tok.data != TokenKind::TOK_IDENT)
+        return this->next_error<Box<Expr>>(kind_to_string(counter_tok.data));
+    auto counter = counter_tok.span.source(this->source);
+
+    auto assign_err = this->expect(TokenKind::TOK_ASSIGN);
+    if (assign_err.has_value())
+        return std::unexpected(assign_err.value());
+
+    auto start_res = this->parse_expr();
+    if (!start_res.has_value())
+        return std::unexpected(start_res.error());
+
+    auto comma_err = this->expect(TokenKind::TOK_COMMA);
+    if (comma_err.has_value())
+        return std::unexpected(comma_err.value());
+
+    auto end_res = this->parse_expr();
+    if (!end_res.has_value())
+        return std::unexpected(end_res.error());
+
+    std::optional<Box<Expr>> step = std::nullopt;
+    if (this->at(TokenKind::TOK_COMMA)) {
+        this->advance();
+        auto step_res = this->parse_expr();
+        if (!step_res.has_value())
+            return std::unexpected(step_res.error());
+        step = std::move(step_res.value());
+    }
+
+    auto in_err = this->expect(TokenKind::TOK_IN);
+    if (in_err.has_value())
+        return std::unexpected(in_err.value());
+
+    auto body_res = this->parse_expr();
+    if (!body_res.has_value())
+        return std::unexpected(body_res.error());
+
+    return std::make_unique<Expr>(ForExpr{
+        counter, std::move(start_res.value()), std::move(end_res.value()),
+        std::move(step), std::move(body_res.value())});
+}
+
+auto Parser::parse_var_bind() -> ParseResult<VarExprBinding> {
+    if (!this->at(TokenKind::TOK_IDENT))
+        return this->next_error<VarExprBinding>("Expected variable binding");
+    auto name_tok = this->lexer.next_token();
+    auto name = name_tok.span.source(this->source);
+
+    std::optional<Box<Expr>> value = std::nullopt;
+    if (this->at(TokenKind::TOK_ASSIGN)) {
+        this->advance();
+        auto value_res = this->parse_expr();
+        if (!value_res.has_value())
+            return std::unexpected(value_res.error());
+        value = std::move(value_res.value());
+    }
+
+    return VarExprBinding{.name = name, .value = std::move(value)};
+}
+
+auto Parser::parse_var_expr() -> ParseResultBoxed<Expr> {
+    this->advance(/* Eat 'var' */);
+
+    if (!this->at(TokenKind::TOK_IDENT))
+        return this->next_error<Box<Expr>>(
+            "Variable expression requires at least one binding");
+
+    auto first_bind_res = this->parse_var_bind();
+    if (!first_bind_res.has_value())
+        return std::unexpected(first_bind_res.error());
+
+    auto bindings = std::vector<VarExprBinding>();
+    while (this->at(TokenKind::TOK_COMMA)) {
+        this->advance(/* Eat comma */);
+        auto binding_res = this->parse_var_bind();
+        if (!binding_res.has_value())
+            return std::unexpected(binding_res.error());
+        bindings.push_back(std::move(binding_res.value()));
+    }
+
+    auto in_err = this->expect(TokenKind::TOK_IN);
+    if (in_err.has_value())
+        return std::unexpected(in_err.value());
+
+    auto body_res = this->parse_expr();
+    if (!body_res.has_value())
+        return std::unexpected(body_res.error());
+
+    return std::make_unique<Expr>(
+        VarExpr{.first_bind = std::move(first_bind_res.value()),
+                .bindings = std::move(bindings),
+                .body = std::move(body_res.value())});
+}
+
 inline auto Parser::at(TokenKind expected) -> bool {
     return this->lexer.peek_token() == expected;
 }
@@ -306,16 +413,18 @@ auto Parser::expect(TokenKind expected) -> std::optional<ParseError> {
 }
 
 template <class T>
-inline auto Parser::next_error(std::string expected) -> ParseResult<T> {
+inline auto Parser::next_error(std::string message) -> ParseResult<T> {
     auto token = this->lexer.next_token();
     return std::unexpected(std::make_pair(
-        token.span, SyntaxError{.expected = expected, .got = token.data}));
+        token.span, SyntaxError{.expected = message, .got = token.data}));
 }
 
 namespace ast {
 static auto bop_to_string(BinOp::Op op) -> std::string {
     using Op = BinOp::Op;
     switch (op) {
+    case Op::BINOP_SEQ: return ":";
+    case Op::BINOP_ASS: return "=";
     case Op::BINOP_LT: return "<";
     case Op::BINOP_LEQ: return "<=";
     case Op::BINOP_GT: return ">";
@@ -380,7 +489,48 @@ auto ExprPrinter::operator()(const IfExpr &kind) const -> std::string {
     return res;
 }
 
-[[nodiscard]] auto expr_to_string(const Expr &expr) -> std::string {
+auto ExprPrinter::operator()(const ForExpr &kind) const -> std::string {
+    auto fore = &kind;
+    std::string res = "(for ";
+    res.append(fore->counter);
+    res.append(" = ");
+    res.append(expr_to_string(*fore->start));
+    res.append(", ");
+    res.append(expr_to_string(*fore->end));
+    if (fore->step.has_value()) {
+        res.append(", ");
+        res.append(expr_to_string(*fore->step.value()));
+    }
+    res.append(" in ");
+    res.append(expr_to_string(*fore->body));
+    res.push_back(')');
+    return res;
+}
+
+static auto var_expr_bind_to_string(const VarExprBinding &bind) -> std::string {
+    auto res = std::string(bind.name);
+    if (bind.value.has_value()) {
+        res.append(" = ");
+        res.append(expr_to_string(*bind.value.value()));
+    }
+    return res;
+}
+
+auto ExprPrinter::operator()(const VarExpr &kind) const -> std::string {
+    auto var = &kind;
+    std::string res = "(var ";
+    res.append(var_expr_bind_to_string(var->first_bind));
+    for (auto &bind : var->bindings) {
+        res.append(", ");
+        res.append(var_expr_bind_to_string(bind));
+    }
+    res.append(" in ");
+    res.append(expr_to_string(*var->body));
+    res.push_back(')');
+    return res;
+}
+
+auto expr_to_string(const Expr &expr) -> std::string {
     return swl::visit(ExprPrinter{}, expr);
 }
 
@@ -415,6 +565,6 @@ auto ItemPrinter::operator()(const Extern &kind) const -> std::string {
     return std::string("extern ") + proto_to_string(kind.proto);
 }
 auto ItemPrinter::operator()(const TopLevelExpr &kind) const -> std::string {
-    return ast::expr_to_string(*kind.anon.body);
+    return expr_to_string(*kind.anon.body);
 }
 }; // namespace ast
