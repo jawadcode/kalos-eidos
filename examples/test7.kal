@@ -1,0 +1,6 @@
+extern print_float(num);
+extern odd(num);
+
+def printodd(until)
+    for i = 1, i < until, 1.0 in
+        if odd(i) then print_float(i) else 0

@@ -1,0 +1,7 @@
+extern putchard(char);
+
+def printstars(n)
+    for i = 1, i < n, 1.0 in
+        putchard(42) # 42 = Character Code for '*'
+
+printstars(100);

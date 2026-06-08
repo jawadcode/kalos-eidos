@@ -1,0 +1,5 @@
+extern foo();
+extern bar();
+
+def baz(x)
+    if x > 5 then foo() else bar();
