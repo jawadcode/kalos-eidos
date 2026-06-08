@@ -37,6 +37,8 @@
 #include "parser.h"
 #include "utils.h"
 
+using namespace ast;
+
 Compiler::Compiler() {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
@@ -75,10 +77,10 @@ Compiler::Compiler() {
     pb.crossRegisterProxies(*this->lam, *this->fam, *this->cam, *this->mam);
 }
 
-auto Compiler::compile_file(const ast::File &file) -> CompileResult<std::nullptr_t> {
-    auto custom_op_res = this->compile_fun_def(ast::FunDef{
+auto Compiler::compile_file(const File &file) -> CompileResult<std::nullptr_t> {
+    auto custom_op_res = this->compile_fun_def(FunDef{
         .proto = { .name = "operator:", .args = { "x", "y" } },
-        .body = std::make_unique<ast::Expr>(ast::Var{ .name = "y" }),
+        .body = std::make_unique<Expr>(Var{ .name = "y" }),
     });
     if (!custom_op_res.has_value())
         return std::unexpected("Fatal Error: Failed to compile custom operator `:`: " +
@@ -86,23 +88,23 @@ auto Compiler::compile_file(const ast::File &file) -> CompileResult<std::nullptr
 
     auto items = std::span(file.items);
     for (auto &item : items) {
-        auto res = swl::visit(
-            match{ [this](const ast::FunDef &fun_def) -> CompileResult<std::nullptr_t> {
-                      auto fun_res = this->compile_fun_def(fun_def);
-                      if (!fun_res.has_value()) return std::unexpected(fun_res.error());
-                      else return nullptr;
-                  },
-                   [this](const ast::Extern &external) -> CompileResult<std::nullptr_t> {
-                       auto ext_res = this->compile_proto(external.proto);
-                       if (!ext_res.has_value()) return std::unexpected(ext_res.error());
-                       else return nullptr;
-                   },
-                   [this](const ast::TopLevelExpr &tle) -> CompileResult<std::nullptr_t> {
-                       auto tle_res = this->compile_fun_def(tle.anon);
-                       if (!tle_res.has_value()) return std::unexpected(tle_res.error());
-                       else return nullptr;
-                   } },
-            item);
+        auto res =
+            swl::visit(match{ [this](const FunDef &fun_def) -> CompileResult<std::nullptr_t> {
+                                 auto fun_res = this->compile_fun_def(fun_def);
+                                 if (!fun_res.has_value()) return std::unexpected(fun_res.error());
+                                 else return nullptr;
+                             },
+                              [this](const Extern &external) -> CompileResult<std::nullptr_t> {
+                                  auto ext_res = this->compile_proto(external.proto);
+                                  if (!ext_res.has_value()) return std::unexpected(ext_res.error());
+                                  else return nullptr;
+                              },
+                              [this](const TopLevelExpr &tle) -> CompileResult<std::nullptr_t> {
+                                  auto tle_res = this->compile_fun_def(tle.anon);
+                                  if (!tle_res.has_value()) return std::unexpected(tle_res.error());
+                                  else return nullptr;
+                              } },
+                       item);
         if (!res.has_value()) return std::unexpected(res.error());
     }
 
@@ -117,7 +119,7 @@ auto Compiler::write_module(const std::string &out_file_path) const -> void {
     this->module->print(out_file, nullptr);
 }
 
-auto Compiler::compile_fun_def(const ast::FunDef &fun_def) -> CompileResult<llvm::Function *> {
+auto Compiler::compile_fun_def(const FunDef &fun_def) -> CompileResult<llvm::Function *> {
     auto fun = this->module->getFunction(fun_def.proto.name);
 
     if (fun == nullptr) {
@@ -163,7 +165,7 @@ auto Compiler::compile_fun_def(const ast::FunDef &fun_def) -> CompileResult<llvm
     return fun;
 }
 
-auto Compiler::compile_proto(const ast::Proto &proto) -> CompileResult<llvm::Function *> {
+auto Compiler::compile_proto(const Proto &proto) -> CompileResult<llvm::Function *> {
     auto doubles =
         std::vector<llvm::Type *>(proto.args.size(), llvm::Type::getDoubleTy(*this->context));
     auto fun_type =
@@ -177,32 +179,32 @@ auto Compiler::compile_proto(const ast::Proto &proto) -> CompileResult<llvm::Fun
     return fun;
 }
 
-auto Compiler::compile_expr(const ast::Expr &expr) -> CompileResult<llvm::Value *> {
+auto Compiler::compile_expr(const Expr &expr) -> CompileResult<llvm::Value *> {
     return swl::visit(
-        match{ [this](const ast::NumLit &num_lit) -> CompileResult<llvm::Value *> {
+        match{ [this](const NumLit &num_lit) -> CompileResult<llvm::Value *> {
                   return this->compile_num_lit(num_lit);
               },
-               [this](const ast::Var &var) { return this->compile_var(var); },
-               [this](const ast::FunCall &fun_call) { return this->compile_fun_call(fun_call); },
-               [this](const ast::BinOp &bin_op) { return this->compile_binary_op(bin_op); },
-               [this](const ast::IfExpr &ife) { return this->compile_if_expr(ife); },
-               [this](const ast::ForExpr &fore) { return this->compile_for_expr(fore); },
-               [this](const ast::VarExpr &var) { return this->compile_var_expr(var); } },
+               [this](const Var &var) { return this->compile_var(var); },
+               [this](const FunCall &fun_call) { return this->compile_fun_call(fun_call); },
+               [this](const BinOp &bin_op) { return this->compile_binary_op(bin_op); },
+               [this](const IfExpr &ife) { return this->compile_if_expr(ife); },
+               [this](const ForExpr &fore) { return this->compile_for_expr(fore); },
+               [this](const VarExpr &var) { return this->compile_var_expr(var); } },
 
         expr);
 }
 
-auto Compiler::compile_num_lit(const ast::NumLit &num_lit) -> llvm::Value * {
+auto Compiler::compile_num_lit(const NumLit &num_lit) -> llvm::Value * {
     return llvm::ConstantFP::get(*this->context, llvm::APFloat(num_lit.value));
 }
 
-auto Compiler::compile_var(const ast::Var &var) -> CompileResult<llvm::Value *> {
+auto Compiler::compile_var(const Var &var) -> CompileResult<llvm::Value *> {
     auto value = this->named_values[var.name];
     if (value == nullptr) return std::unexpected(std::format("Unknown variable '{}'", var.name));
     return this->builder->CreateLoad(value->getAllocatedType(), value, var.name);
 }
 
-auto Compiler::compile_fun_call(const ast::FunCall &fun_call) -> CompileResult<llvm::Value *> {
+auto Compiler::compile_fun_call(const FunCall &fun_call) -> CompileResult<llvm::Value *> {
     auto callee = this->module->getFunction(fun_call.fun);
     if (callee == nullptr)
         return std::unexpected(std::format("Unknown function '{}'", fun_call.fun));
@@ -231,8 +233,8 @@ auto Compiler::create_entry_block_alloca(llvm::Function *fun, llvm::StringRef na
     return temp_builder.CreateAlloca(llvm::Type::getDoubleTy(*this->context), nullptr, name);
 }
 
-auto Compiler::compile_assign(const ast::BinOp &bin_op) -> CompileResult<llvm::Value *> {
-    if (swl::holds_alternative<ast::Var>(*bin_op.lhs)) {
+auto Compiler::compile_assign(const BinOp &bin_op) -> CompileResult<llvm::Value *> {
+    if (swl::holds_alternative<Var>(*bin_op.lhs)) {
         auto lhs = bin_op.lhs->unsafe_get<1>();
 
         auto new_value_res = this->compile_expr(*bin_op.rhs);
@@ -248,8 +250,8 @@ auto Compiler::compile_assign(const ast::BinOp &bin_op) -> CompileResult<llvm::V
     } else return std::unexpected("Can only assign to variable");
 }
 
-auto Compiler::compile_binary_op(const ast::BinOp &bin_op) -> CompileResult<llvm::Value *> {
-    if (bin_op.op == ast::BinOp::Op::BINOP_ASS) return this->compile_assign(bin_op);
+auto Compiler::compile_binary_op(const BinOp &bin_op) -> CompileResult<llvm::Value *> {
+    if (bin_op.op == BinOp::Op::BINOP_ASS) return this->compile_assign(bin_op);
 
     auto lhs_res = this->compile_expr(*bin_op.lhs);
     if (!lhs_res.has_value()) return std::unexpected(lhs_res.error());
@@ -259,7 +261,7 @@ auto Compiler::compile_binary_op(const ast::BinOp &bin_op) -> CompileResult<llvm
     if (!rhs_res.has_value()) return std::unexpected(rhs_res.error());
     auto rhs = rhs_res.value();
 
-    using Op = ast::BinOp::Op;
+    using Op = BinOp::Op;
     switch (bin_op.op) {
     case Op::BINOP_SEQ: {
         auto callee = this->module->getFunction("operator:");
@@ -292,7 +294,7 @@ auto Compiler::compile_binary_op(const ast::BinOp &bin_op) -> CompileResult<llvm
     }
 }
 
-auto Compiler::compile_if_expr(const ast::IfExpr &ife) -> CompileResult<llvm::Value *> {
+auto Compiler::compile_if_expr(const IfExpr &ife) -> CompileResult<llvm::Value *> {
     // Compile 'condition' expression
     auto cond_res = this->compile_expr(std::move(*ife.cond));
     if (!cond_res.has_value()) return std::unexpected(cond_res.error());
@@ -352,7 +354,7 @@ auto Compiler::compile_if_expr(const ast::IfExpr &ife) -> CompileResult<llvm::Va
     return phi_node;
 }
 
-auto Compiler::compile_for_expr(const ast::ForExpr &fore) -> CompileResult<llvm::Value *> {
+auto Compiler::compile_for_expr(const ForExpr &fore) -> CompileResult<llvm::Value *> {
     auto fun = this->builder->GetInsertBlock()->getParent();
 
     auto alloca = this->create_entry_block_alloca(fun, fore.counter);
@@ -423,7 +425,7 @@ auto Compiler::compile_for_expr(const ast::ForExpr &fore) -> CompileResult<llvm:
     return llvm::Constant::getNullValue(llvm::Type::getDoubleTy(*this->context));
 }
 
-auto Compiler::compile_var_bind(const ast::VarExprBinding &bind, llvm::Function *fun)
+auto Compiler::compile_var_bind(const VarExprBinding &bind, llvm::Function *fun)
     -> CompileResult<std::pair<std::string_view, llvm::AllocaInst *>> {
     llvm::Value *init_value;
     if (bind.value.has_value()) {
@@ -441,7 +443,7 @@ auto Compiler::compile_var_bind(const ast::VarExprBinding &bind, llvm::Function 
     return std::make_pair(bind.name, alloca);
 }
 
-auto Compiler::compile_var_expr(const ast::VarExpr &var) -> CompileResult<llvm::Value *> {
+auto Compiler::compile_var_expr(const VarExpr &var) -> CompileResult<llvm::Value *> {
     std::vector<llvm::AllocaInst *> old_bindings;
 
     auto fun = this->builder->GetInsertBlock()->getParent();
