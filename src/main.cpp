@@ -25,15 +25,11 @@ auto read_file(const std::string_view path) -> std::optional<std::string> {
     // Will throw on an irrecoverable stream error
     stream.exceptions(std::ios_base::badbit);
 
-    if (not stream) {
-        return std::nullopt;
-    }
+    if (not stream) { return std::nullopt; }
 
     auto out = std::string();
     auto buf = std::string(read_size, '\0');
-    while (stream.read(&buf[0], read_size)) {
-        out.append(buf, 0, stream.gcount());
-    }
+    while (stream.read(&buf[0], read_size)) { out.append(buf, 0, stream.gcount()); }
     out.append(buf, 0, stream.gcount());
     return out;
 }
@@ -48,12 +44,10 @@ auto main(int argc, char *argv[]) -> int {
 
     auto maybe_source_file_content = read_file(args.source_file_path);
     if (!maybe_source_file_content.has_value()) {
-        std::println(stderr, "\x1b[0;31mError\x1b[0m: File '{}' not found",
-                     args.source_file_path);
+        std::println(stderr, "\x1b[0;31mError\x1b[0m: File '{}' not found", args.source_file_path);
         std::exit(1);
     }
-    const std::string source_file_content =
-        std::move(*maybe_source_file_content);
+    const std::string source_file_content = std::move(*maybe_source_file_content);
     std::println(R"(
 Source:
 """{}""")",
@@ -64,8 +58,7 @@ Source:
         std::println("\nAST:");
         auto file = std::move(parse_result.value());
         std::println("# File '{}'", file.file_path);
-        for (auto &item : file.items)
-            std::println("{}", swl::visit(ast::ItemPrinter{}, item));
+        for (auto &item : file.items) std::println("{}", swl::visit(ast::ItemPrinter{}, item));
 
         std::println("\nLLVM IR:");
         auto compiler = Compiler();
@@ -74,15 +67,12 @@ Source:
             std::println(stderr, "\nCompileError: {}", compile_res.error());
         else {
             compiler.print_module();
-            if (args.out_file_path.has_value())
-                compiler.write_module(args.out_file_path.value());
+            if (args.out_file_path.has_value()) compiler.write_module(args.out_file_path.value());
         }
     } else {
         auto err = parse_result.error();
-        std::println(stderr,
-                     "\nSyntaxError - at: {}..{}, expected: {}, got: {}",
-                     err.first.start, err.first.end, err.second.expected,
-                     kind_to_string(err.second.got));
+        std::println(stderr, "\nSyntaxError - at: {}..{}, expected: {}, got: {}", err.first.start,
+                     err.first.end, err.second.expected, kind_to_string(err.second.got));
     }
     return 0;
 }

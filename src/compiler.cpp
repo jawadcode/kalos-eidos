@@ -55,8 +55,7 @@ Compiler::Compiler() {
     this->cam = std::make_unique<llvm::CGSCCAnalysisManager>();
     this->mam = std::make_unique<llvm::ModuleAnalysisManager>();
     this->pic = std::make_unique<llvm::PassInstrumentationCallbacks>();
-    this->si =
-        std::make_unique<llvm::StandardInstrumentations>(*this->context, true);
+    this->si = std::make_unique<llvm::StandardInstrumentations>(*this->context, true);
     this->si->registerCallbacks(*this->pic, this->mam.get());
 
     // Promote stack (i.e. alloca) data to registers
@@ -76,56 +75,41 @@ Compiler::Compiler() {
     pb.crossRegisterProxies(*this->lam, *this->fam, *this->cam, *this->mam);
 }
 
-auto Compiler::compile_file(const ast::File &file)
-    -> CompileResult<std::nullptr_t> {
+auto Compiler::compile_file(const ast::File &file) -> CompileResult<std::nullptr_t> {
     auto custom_op_res = this->compile_fun_def(ast::FunDef{
-        .proto = {.name = "operator:", .args = {"x", "y"}},
-        .body = std::make_unique<ast::Expr>(ast::Var{.name = "y"}),
+        .proto = { .name = "operator:", .args = { "x", "y" } },
+        .body = std::make_unique<ast::Expr>(ast::Var{ .name = "y" }),
     });
     if (!custom_op_res.has_value())
-        return std::unexpected(
-            "Fatal Error: Failed to compile custom operator `:`: " +
-            custom_op_res.error());
+        return std::unexpected("Fatal Error: Failed to compile custom operator `:`: " +
+                               custom_op_res.error());
 
     auto items = std::span(file.items);
     for (auto &item : items) {
-        auto res =
-            swl::visit(match{[this](const ast::FunDef &fun_def)
-                                 -> CompileResult<std::nullptr_t> {
-                                 auto fun_res = this->compile_fun_def(fun_def);
-                                 if (!fun_res.has_value())
-                                     return std::unexpected(fun_res.error());
-                                 else
-                                     return nullptr;
-                             },
-                             [this](const ast::Extern &external)
-                                 -> CompileResult<std::nullptr_t> {
-                                 auto ext_res =
-                                     this->compile_proto(external.proto);
-                                 if (!ext_res.has_value())
-                                     return std::unexpected(ext_res.error());
-                                 else
-                                     return nullptr;
-                             },
-                             [this](const ast::TopLevelExpr &tle)
-                                 -> CompileResult<std::nullptr_t> {
-                                 auto tle_res = this->compile_fun_def(tle.anon);
-                                 if (!tle_res.has_value())
-                                     return std::unexpected(tle_res.error());
-                                 else
-                                     return nullptr;
-                             }},
-                       item);
-        if (!res.has_value())
-            return std::unexpected(res.error());
+        auto res = swl::visit(
+            match{ [this](const ast::FunDef &fun_def) -> CompileResult<std::nullptr_t> {
+                      auto fun_res = this->compile_fun_def(fun_def);
+                      if (!fun_res.has_value()) return std::unexpected(fun_res.error());
+                      else return nullptr;
+                  },
+                   [this](const ast::Extern &external) -> CompileResult<std::nullptr_t> {
+                       auto ext_res = this->compile_proto(external.proto);
+                       if (!ext_res.has_value()) return std::unexpected(ext_res.error());
+                       else return nullptr;
+                   },
+                   [this](const ast::TopLevelExpr &tle) -> CompileResult<std::nullptr_t> {
+                       auto tle_res = this->compile_fun_def(tle.anon);
+                       if (!tle_res.has_value()) return std::unexpected(tle_res.error());
+                       else return nullptr;
+                   } },
+            item);
+        if (!res.has_value()) return std::unexpected(res.error());
     }
 
     return nullptr;
 }
 
-auto Compiler::print_module() const -> void {
-    this->module->print(llvm::outs(), nullptr);
-}
+auto Compiler::print_module() const -> void { this->module->print(llvm::outs(), nullptr); }
 
 auto Compiler::write_module(const std::string &out_file_path) const -> void {
     std::error_code error_code;
@@ -133,27 +117,23 @@ auto Compiler::write_module(const std::string &out_file_path) const -> void {
     this->module->print(out_file, nullptr);
 }
 
-auto Compiler::compile_fun_def(const ast::FunDef &fun_def)
-    -> CompileResult<llvm::Function *> {
+auto Compiler::compile_fun_def(const ast::FunDef &fun_def) -> CompileResult<llvm::Function *> {
     auto fun = this->module->getFunction(fun_def.proto.name);
 
     if (fun == nullptr) {
         auto fun_res = this->compile_proto(fun_def.proto);
-        if (!fun_res.has_value())
-            return std::unexpected(fun_res.error());
+        if (!fun_res.has_value()) return std::unexpected(fun_res.error());
         fun = fun_res.value();
     }
 
     if (fun == nullptr)
-        return std::unexpected(
-            "Failed to compile function prototype for some reason");
+        return std::unexpected("Failed to compile function prototype for some reason");
 
     if (!fun->empty())
-        return std::unexpected(std::format("Function '{}' cannot be redefined",
-                                           fun_def.proto.name));
+        return std::unexpected(
+            std::format("Function '{}' cannot be redefined", fun_def.proto.name));
 
-    auto basic_block =
-        llvm::BasicBlock::Create(*this->context, "fun_entry", fun);
+    auto basic_block = llvm::BasicBlock::Create(*this->context, "fun_entry", fun);
     this->builder->SetInsertPoint(basic_block);
 
     this->named_values.clear();
@@ -183,45 +163,31 @@ auto Compiler::compile_fun_def(const ast::FunDef &fun_def)
     return fun;
 }
 
-auto Compiler::compile_proto(const ast::Proto &proto)
-    -> CompileResult<llvm::Function *> {
-    auto doubles = std::vector<llvm::Type *>(
-        proto.args.size(), llvm::Type::getDoubleTy(*this->context));
-    auto fun_type = llvm::FunctionType::get(
-        llvm::Type::getDoubleTy(*this->context), doubles, false);
-    auto fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage,
-                                      proto.name, this->module.get());
+auto Compiler::compile_proto(const ast::Proto &proto) -> CompileResult<llvm::Function *> {
+    auto doubles =
+        std::vector<llvm::Type *>(proto.args.size(), llvm::Type::getDoubleTy(*this->context));
+    auto fun_type =
+        llvm::FunctionType::get(llvm::Type::getDoubleTy(*this->context), doubles, false);
+    auto fun = llvm::Function::Create(fun_type, llvm::Function::ExternalLinkage, proto.name,
+                                      this->module.get());
 
     auto index = 0zu;
-    for (auto &arg : fun->args())
-        arg.setName(proto.args[index++]);
+    for (auto &arg : fun->args()) arg.setName(proto.args[index++]);
 
     return fun;
 }
 
-auto Compiler::compile_expr(const ast::Expr &expr)
-    -> CompileResult<llvm::Value *> {
+auto Compiler::compile_expr(const ast::Expr &expr) -> CompileResult<llvm::Value *> {
     return swl::visit(
-        match{
-            [this](const ast::NumLit &num_lit) -> CompileResult<llvm::Value *> {
-                return this->compile_num_lit(num_lit);
-            },
-            [this](const ast::Var &var) { return this->compile_var(var); },
-            [this](const ast::FunCall &fun_call) {
-                return this->compile_fun_call(fun_call);
-            },
-            [this](const ast::BinOp &bin_op) {
-                return this->compile_binary_op(bin_op);
-            },
-            [this](const ast::IfExpr &ife) {
-                return this->compile_if_expr(ife);
-            },
-            [this](const ast::ForExpr &fore) {
-                return this->compile_for_expr(fore);
-            },
-            [this](const ast::VarExpr &var) {
-                return this->compile_var_expr(var);
-            }},
+        match{ [this](const ast::NumLit &num_lit) -> CompileResult<llvm::Value *> {
+                  return this->compile_num_lit(num_lit);
+              },
+               [this](const ast::Var &var) { return this->compile_var(var); },
+               [this](const ast::FunCall &fun_call) { return this->compile_fun_call(fun_call); },
+               [this](const ast::BinOp &bin_op) { return this->compile_binary_op(bin_op); },
+               [this](const ast::IfExpr &ife) { return this->compile_if_expr(ife); },
+               [this](const ast::ForExpr &fore) { return this->compile_for_expr(fore); },
+               [this](const ast::VarExpr &var) { return this->compile_var_expr(var); } },
 
         expr);
 }
@@ -230,93 +196,75 @@ auto Compiler::compile_num_lit(const ast::NumLit &num_lit) -> llvm::Value * {
     return llvm::ConstantFP::get(*this->context, llvm::APFloat(num_lit.value));
 }
 
-auto Compiler::compile_var(const ast::Var &var)
-    -> CompileResult<llvm::Value *> {
+auto Compiler::compile_var(const ast::Var &var) -> CompileResult<llvm::Value *> {
     auto value = this->named_values[var.name];
-    if (value == nullptr)
-        return std::unexpected(std::format("Unknown variable '{}'", var.name));
-    return this->builder->CreateLoad(value->getAllocatedType(), value,
-                                     var.name);
+    if (value == nullptr) return std::unexpected(std::format("Unknown variable '{}'", var.name));
+    return this->builder->CreateLoad(value->getAllocatedType(), value, var.name);
 }
 
-auto Compiler::compile_fun_call(const ast::FunCall &fun_call)
-    -> CompileResult<llvm::Value *> {
+auto Compiler::compile_fun_call(const ast::FunCall &fun_call) -> CompileResult<llvm::Value *> {
     auto callee = this->module->getFunction(fun_call.fun);
     if (callee == nullptr)
-        return std::unexpected(
-            std::format("Unknown function '{}'", fun_call.fun));
+        return std::unexpected(std::format("Unknown function '{}'", fun_call.fun));
 
     auto callee_arity = callee->arg_size();
     auto call_arity = fun_call.args.size();
 
     if (callee_arity != call_arity)
-        return std::unexpected(std::format(
-            "Arity mismatch, function '{}' expected {} args, got {} args",
-            fun_call.fun, callee_arity, call_arity));
+        return std::unexpected(
+            std::format("Arity mismatch, function '{}' expected {} args, got {} args", fun_call.fun,
+                        callee_arity, call_arity));
 
     auto args = std::vector<llvm::Value *>();
     for (std::size_t i = 0; i < call_arity; i++) {
         auto expr_res = this->compile_expr(*fun_call.args[i]);
-        if (!expr_res.has_value())
-            return std::unexpected(expr_res.error());
+        if (!expr_res.has_value()) return std::unexpected(expr_res.error());
         args.push_back(expr_res.value());
     }
 
     return this->builder->CreateCall(callee, args, "fun_call_temp");
 }
 
-auto Compiler::create_entry_block_alloca(llvm::Function *fun,
-                                         llvm::StringRef name)
+auto Compiler::create_entry_block_alloca(llvm::Function *fun, llvm::StringRef name)
     -> llvm::AllocaInst * {
-    auto temp_builder =
-        llvm::IRBuilder<>(&fun->getEntryBlock(), fun->getEntryBlock().begin());
-    return temp_builder.CreateAlloca(llvm::Type::getDoubleTy(*this->context),
-                                     nullptr, name);
+    auto temp_builder = llvm::IRBuilder<>(&fun->getEntryBlock(), fun->getEntryBlock().begin());
+    return temp_builder.CreateAlloca(llvm::Type::getDoubleTy(*this->context), nullptr, name);
 }
 
-auto Compiler::compile_assign(const ast::BinOp &bin_op)
-    -> CompileResult<llvm::Value *> {
+auto Compiler::compile_assign(const ast::BinOp &bin_op) -> CompileResult<llvm::Value *> {
     if (swl::holds_alternative<ast::Var>(*bin_op.lhs)) {
         auto lhs = bin_op.lhs->unsafe_get<1>();
 
         auto new_value_res = this->compile_expr(*bin_op.rhs);
-        if (!new_value_res.has_value())
-            return std::unexpected(new_value_res.error());
+        if (!new_value_res.has_value()) return std::unexpected(new_value_res.error());
         auto new_value = new_value_res.value();
 
         auto old_value = this->named_values[lhs.name];
         if (old_value == nullptr)
-            return std::unexpected(
-                std::format("Unknown variable name '{}'", lhs.name));
+            return std::unexpected(std::format("Unknown variable name '{}'", lhs.name));
         this->builder->CreateStore(new_value, old_value);
 
         return new_value;
-    } else
-        return std::unexpected("Can only assign to variable");
+    } else return std::unexpected("Can only assign to variable");
 }
 
-auto Compiler::compile_binary_op(const ast::BinOp &bin_op)
-    -> CompileResult<llvm::Value *> {
-    if (bin_op.op == ast::BinOp::Op::BINOP_ASS)
-        return this->compile_assign(bin_op);
+auto Compiler::compile_binary_op(const ast::BinOp &bin_op) -> CompileResult<llvm::Value *> {
+    if (bin_op.op == ast::BinOp::Op::BINOP_ASS) return this->compile_assign(bin_op);
 
     auto lhs_res = this->compile_expr(*bin_op.lhs);
-    if (!lhs_res.has_value())
-        return std::unexpected(lhs_res.error());
+    if (!lhs_res.has_value()) return std::unexpected(lhs_res.error());
     auto lhs = lhs_res.value();
 
     auto rhs_res = this->compile_expr(*bin_op.rhs);
-    if (!rhs_res.has_value())
-        return std::unexpected(rhs_res.error());
+    if (!rhs_res.has_value()) return std::unexpected(rhs_res.error());
     auto rhs = rhs_res.value();
 
     using Op = ast::BinOp::Op;
     switch (bin_op.op) {
     case Op::BINOP_SEQ: {
         auto callee = this->module->getFunction("operator:");
-        if (callee == nullptr)
-            return std::unexpected("Fatal Error: Unknown function 'operator:'");
-        return this->builder->CreateCall(callee, {lhs, rhs}, "op_seq_temp");
+        if (callee == nullptr) return std::unexpected("Fatal Error: Unknown function 'operator:'");
+        return this->builder->CreateCall(callee, { lhs, rhs }, "op_seq_temp");
     }
     case Op::BINOP_ASS: std::unreachable();
     case Op::BINOP_ADD: return this->builder->CreateFAdd(lhs, rhs, "add_temp");
@@ -325,43 +273,34 @@ auto Compiler::compile_binary_op(const ast::BinOp &bin_op)
     case Op::BINOP_DIV: return this->builder->CreateFDiv(lhs, rhs, "div_temp");
     case Op::BINOP_LT:
         lhs = this->builder->CreateFCmpULT(lhs, rhs, "less_than_temp");
-        return this->builder->CreateUIToFP(
-            lhs, llvm::Type::getDoubleTy(*this->context));
+        return this->builder->CreateUIToFP(lhs, llvm::Type::getDoubleTy(*this->context));
     case Op::BINOP_LEQ:
         lhs = this->builder->CreateFCmpULE(lhs, rhs, "lesser_or_equal_temp");
-        return this->builder->CreateUIToFP(
-            lhs, llvm::Type::getDoubleTy(*this->context));
+        return this->builder->CreateUIToFP(lhs, llvm::Type::getDoubleTy(*this->context));
     case Op::BINOP_GT:
         lhs = this->builder->CreateFCmpUGT(lhs, rhs, "greater_than_temp");
-        return this->builder->CreateUIToFP(
-            lhs, llvm::Type::getDoubleTy(*this->context));
+        return this->builder->CreateUIToFP(lhs, llvm::Type::getDoubleTy(*this->context));
     case Op::BINOP_GEQ:
         lhs = this->builder->CreateFCmpUGE(lhs, rhs, "greater_or_equal_temp");
-        return this->builder->CreateUIToFP(
-            lhs, llvm::Type::getDoubleTy(*this->context));
+        return this->builder->CreateUIToFP(lhs, llvm::Type::getDoubleTy(*this->context));
     case Op::BINOP_EQ:
         lhs = this->builder->CreateFCmpUEQ(lhs, rhs, "equal_to_temp");
-        return this->builder->CreateUIToFP(
-            lhs, llvm::Type::getDoubleTy(*this->context));
+        return this->builder->CreateUIToFP(lhs, llvm::Type::getDoubleTy(*this->context));
     case Op::BINOP_NEQ:
         lhs = this->builder->CreateFCmpUNE(lhs, rhs, "not_equal_temp");
-        return this->builder->CreateUIToFP(
-            lhs, llvm::Type::getDoubleTy(*this->context));
+        return this->builder->CreateUIToFP(lhs, llvm::Type::getDoubleTy(*this->context));
     }
 }
 
-auto Compiler::compile_if_expr(const ast::IfExpr &ife)
-    -> CompileResult<llvm::Value *> {
+auto Compiler::compile_if_expr(const ast::IfExpr &ife) -> CompileResult<llvm::Value *> {
     // Compile 'condition' expression
     auto cond_res = this->compile_expr(std::move(*ife.cond));
-    if (!cond_res.has_value())
-        return std::unexpected(cond_res.error());
+    if (!cond_res.has_value()) return std::unexpected(cond_res.error());
     auto cond_value = cond_res.value();
 
     // [float] compare not equal to 0.0 to convert the condition into a boolean
     cond_value = this->builder->CreateFCmpONE(
-        cond_value, llvm::ConstantFP::get(*this->context, llvm::APFloat(0.0)),
-        "if_cond");
+        cond_value, llvm::ConstantFP::get(*this->context, llvm::APFloat(0.0)), "if_cond");
 
     // Get the current function object that's being built
     auto fun = this->builder->GetInsertBlock()->getParent();
@@ -380,8 +319,7 @@ auto Compiler::compile_if_expr(const ast::IfExpr &ife)
     // Emit then_block instructions
     this->builder->SetInsertPoint(then_block);
     auto then_res = this->compile_expr(*ife.then);
-    if (!then_res.has_value())
-        return std::unexpected(then_res.error());
+    if (!then_res.has_value()) return std::unexpected(then_res.error());
     auto then_value = then_res.value();
 
     // Unconditional branch to merge point after 'if', 'then' and 'else'
@@ -398,8 +336,7 @@ auto Compiler::compile_if_expr(const ast::IfExpr &ife)
     this->builder->SetInsertPoint(else_block);
 
     auto else_res = this->compile_expr(*ife.else_);
-    if (!else_res.has_value())
-        return std::unexpected(else_res.error());
+    if (!else_res.has_value()) return std::unexpected(else_res.error());
     auto else_value = else_res.value();
 
     this->builder->CreateBr(merge_block);
@@ -408,24 +345,21 @@ auto Compiler::compile_if_expr(const ast::IfExpr &ife)
     // Emit merge_block instructions
     fun->insert(fun->end(), merge_block);
     this->builder->SetInsertPoint(merge_block);
-    auto phi_node = this->builder->CreatePHI(
-        llvm::Type::getDoubleTy(*this->context), 2, "if_temp");
+    auto phi_node = this->builder->CreatePHI(llvm::Type::getDoubleTy(*this->context), 2, "if_temp");
     // Connect phi node to branches of 'if'
     phi_node->addIncoming(then_value, then_block);
     phi_node->addIncoming(else_value, else_block);
     return phi_node;
 }
 
-auto Compiler::compile_for_expr(const ast::ForExpr &fore)
-    -> CompileResult<llvm::Value *> {
+auto Compiler::compile_for_expr(const ast::ForExpr &fore) -> CompileResult<llvm::Value *> {
     auto fun = this->builder->GetInsertBlock()->getParent();
 
     auto alloca = this->create_entry_block_alloca(fun, fore.counter);
 
     // Emit start expression without loop counter in scope
     auto start_value_res = this->compile_expr(*fore.start);
-    if (!start_value_res.has_value())
-        return std::unexpected(start_value_res.error());
+    if (!start_value_res.has_value()) return std::unexpected(start_value_res.error());
     auto start_value = start_value_res.value();
 
     this->builder->CreateStore(start_value, alloca);
@@ -447,15 +381,13 @@ auto Compiler::compile_for_expr(const ast::ForExpr &fore)
     // The counter is defined as equal to the phi within the loop, if it shadows
     // an existing variable it needs to be restored so save it now.
     auto body_res = this->compile_expr(*fore.body);
-    if (!body_res.has_value())
-        return std::unexpected(body_res.error());
+    if (!body_res.has_value()) return std::unexpected(body_res.error());
 
     // Emit step value
     llvm::Value *step_value;
     if (fore.step.has_value()) {
         auto step_res = this->compile_expr(*fore.step.value());
-        if (!step_res.has_value())
-            return std::unexpected(step_res.error());
+        if (!step_res.has_value()) return std::unexpected(step_res.error());
         step_value = step_res.value();
     } else
         // For loops have a default step of 1.0
@@ -463,21 +395,16 @@ auto Compiler::compile_for_expr(const ast::ForExpr &fore)
 
     // Emit end condition
     auto end_cond_res = this->compile_expr(*fore.end);
-    if (!end_cond_res.has_value())
-        return std::unexpected(end_cond_res.error());
+    if (!end_cond_res.has_value()) return std::unexpected(end_cond_res.error());
     auto end_cond_value = end_cond_res.value();
 
-    auto counter_curr = this->builder->CreateLoad(alloca->getAllocatedType(),
-                                                  alloca, fore.counter);
-    auto counter_next =
-        this->builder->CreateFAdd(counter_curr, step_value, "for_counter_next");
+    auto counter_curr = this->builder->CreateLoad(alloca->getAllocatedType(), alloca, fore.counter);
+    auto counter_next = this->builder->CreateFAdd(counter_curr, step_value, "for_counter_next");
     this->builder->CreateStore(counter_next, alloca);
 
     // [float] compare not equal to 0.0 to convert the condition into a boolean
     end_cond_value = this->builder->CreateFCmpONE(
-        end_cond_value,
-        llvm::ConstantFP::get(*this->context, llvm::APFloat(0.0)),
-        "for_end_cond");
+        end_cond_value, llvm::ConstantFP::get(*this->context, llvm::APFloat(0.0)), "for_end_cond");
 
     // Create the post-loop block
     auto post_block = llvm::BasicBlock::Create(*this->context, "for_post", fun);
@@ -489,24 +416,19 @@ auto Compiler::compile_for_expr(const ast::ForExpr &fore)
     this->builder->SetInsertPoint(post_block);
 
     // Restore the unshadowed counter variable
-    if (old_value != nullptr)
-        this->named_values[fore.counter] = old_value;
-    else
-        this->named_values.erase(fore.counter);
+    if (old_value != nullptr) this->named_values[fore.counter] = old_value;
+    else this->named_values.erase(fore.counter);
 
     // For loops expressions always evaluate to 0
-    return llvm::Constant::getNullValue(
-        llvm::Type::getDoubleTy(*this->context));
+    return llvm::Constant::getNullValue(llvm::Type::getDoubleTy(*this->context));
 }
 
-auto Compiler::compile_var_bind(const ast::VarExprBinding &bind,
-                                llvm::Function *fun)
+auto Compiler::compile_var_bind(const ast::VarExprBinding &bind, llvm::Function *fun)
     -> CompileResult<std::pair<std::string_view, llvm::AllocaInst *>> {
     llvm::Value *init_value;
     if (bind.value.has_value()) {
         auto value_res = this->compile_expr(*bind.value.value());
-        if (!value_res.has_value())
-            return std::unexpected(value_res.error());
+        if (!value_res.has_value()) return std::unexpected(value_res.error());
         init_value = value_res.value();
     } else {
         // Zero initialise vars by default
@@ -519,8 +441,7 @@ auto Compiler::compile_var_bind(const ast::VarExprBinding &bind,
     return std::make_pair(bind.name, alloca);
 }
 
-auto Compiler::compile_var_expr(const ast::VarExpr &var)
-    -> CompileResult<llvm::Value *> {
+auto Compiler::compile_var_expr(const ast::VarExpr &var) -> CompileResult<llvm::Value *> {
     std::vector<llvm::AllocaInst *> old_bindings;
 
     auto fun = this->builder->GetInsertBlock()->getParent();
@@ -536,8 +457,7 @@ auto Compiler::compile_var_expr(const ast::VarExpr &var)
     }
 
     auto body_res = this->compile_expr(*var.body);
-    if (!body_res.has_value())
-        return std::unexpected(body_res.error());
+    if (!body_res.has_value()) return std::unexpected(body_res.error());
     auto body_value = body_res.value();
 
     this->named_values[var.first_bind.name] = old_bindings[0];

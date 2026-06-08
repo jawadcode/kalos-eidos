@@ -31,8 +31,7 @@ struct ForExpr;
 
 struct VarExpr;
 
-using Expr =
-    swl::variant<NumLit, Var, FunCall, BinOp, IfExpr, ForExpr, VarExpr>;
+using Expr = swl::variant<NumLit, Var, FunCall, BinOp, IfExpr, ForExpr, VarExpr>;
 
 struct ExprPrinter {
     auto operator()(const NumLit &kind) const -> std::string;
@@ -159,13 +158,10 @@ class Parser {
     [[nodiscard]] auto parse_var_expr() -> ParseResultBoxed<ast::Expr>;
 
     inline auto at(TokenKind expected) -> bool;
-    template <std::size_t N>
-    inline auto at_any(std::array<TokenKind, N> expected) -> bool;
+    template <std::size_t N> inline auto at_any(std::array<TokenKind, N> expected) -> bool;
     inline auto advance() -> void;
     [[nodiscard]] auto expect(TokenKind expected) -> std::optional<ParseError>;
-    template <class T>
-    [[nodiscard]] inline auto next_error(std::string expected)
-        -> ParseResult<T>;
+    template <class T> [[nodiscard]] inline auto next_error(std::string expected) -> ParseResult<T>;
 
   public:
     Parser(const std::string file_path, const std::string_view source);
