@@ -78,31 +78,33 @@ Compiler::Compiler() {
 }
 
 auto Compiler::compile_file(const File &file) -> CompileResult<std::nullptr_t> {
-    auto custom_op_res = this->compile_fun_def(FunDef{
-        .proto = { .name = "operator:", .args = { "x", "y" } },
-        .body = std::make_unique<Expr>(Var{ .name = "y" }),
-    });
-    if (!custom_op_res.has_value())
-        return std::unexpected("Fatal Error: Failed to compile custom operator `:`: " +
-                               custom_op_res.error());
+    // clang-format off
+    // auto custom_op_res = this->compile_fun_def(FunDef{
+    //     .proto = { .name = "operator:", .args = { "x", "y" } },
+    //     .body = std::make_unique<Expr>(Var{ .name = "y" }),
+    // });
+    // if (!custom_op_res.has_value())
+    //     return std::unexpected("Fatal Error: Failed to compile custom operator `:`: " +
+    //                            custom_op_res.error());
+    // clang-format on
 
     auto items = std::span(file.items);
     for (auto &item : items) {
         auto res =
-            swl::visit(match{ [this](const FunDef &fun_def) -> CompileResult<std::nullptr_t> {
+            swl::visit(match{ [this](const FunDef &fun_def) -> CompileResult<std::monostate> {
                                  auto fun_res = this->compile_fun_def(fun_def);
                                  if (!fun_res.has_value()) return std::unexpected(fun_res.error());
-                                 else return nullptr;
+                                 else return std::monostate();
                              },
-                              [this](const Extern &external) -> CompileResult<std::nullptr_t> {
+                              [this](const Extern &external) -> CompileResult<std::monostate> {
                                   auto ext_res = this->compile_proto(external.proto);
                                   if (!ext_res.has_value()) return std::unexpected(ext_res.error());
-                                  else return nullptr;
+                                  else return std::monostate();
                               },
-                              [this](const TopLevelExpr &tle) -> CompileResult<std::nullptr_t> {
+                              [this](const TopLevelExpr &tle) -> CompileResult<std::monostate> {
                                   auto tle_res = this->compile_fun_def(tle.anon);
                                   if (!tle_res.has_value()) return std::unexpected(tle_res.error());
-                                  else return nullptr;
+                                  else return std::monostate();
                               } },
                        item);
         if (!res.has_value()) return std::unexpected(res.error());
@@ -264,9 +266,12 @@ auto Compiler::compile_binary_op(const BinOp &bin_op) -> CompileResult<llvm::Val
     using Op = BinOp::Op;
     switch (bin_op.op) {
     case Op::BINOP_SEQ: {
-        auto callee = this->module->getFunction("operator:");
-        if (callee == nullptr) return std::unexpected("Fatal Error: Unknown function 'operator:'");
-        return this->builder->CreateCall(callee, { lhs, rhs }, "op_seq_temp");
+        return rhs_res.value();
+        // clang-format off
+        // auto callee = this->module->getFunction("operator:");
+        // if (callee == nullptr) return std::unexpected("Fatal Error: Unknown function 'operator:'");
+        // return this->builder->CreateCall(callee, { lhs, rhs }, "op_seq_temp");
+        // clang-format on
     }
     case Op::BINOP_ASS: std::unreachable();
     case Op::BINOP_ADD: return this->builder->CreateFAdd(lhs, rhs, "add_temp");
