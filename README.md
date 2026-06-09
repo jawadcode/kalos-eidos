@@ -1,6 +1,6 @@
 # Kalos Eidos
 
-Just following along with [https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl01.html].
+Just following along with [https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/index.html].
 
 # Build Instructions
 
