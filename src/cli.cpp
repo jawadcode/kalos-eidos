@@ -13,7 +13,12 @@ template <class... Args> void print_error(const std::string_view fmt, Args &&...
 }
 
 static void print_help(const std::string_view name) {
-    std::println("Usage: {} <source_file> ", name);
+    std::println(
+        R"(Kalos Eidos Compiler v0.1.0
+
+Usage: {} <source_file> [-o|--output <out/file/path>]
+        [(-m|--module) | (-a|--assembly)] [-v|--verbose])",
+        name);
 }
 
 Args::Args(int argc, char *argv[]) {
@@ -25,6 +30,9 @@ Args::Args(int argc, char *argv[]) {
     std::optional<std::string_view> srcpath = std::nullopt;
     std::optional<std::string_view> outpath = std::nullopt;
 
+    this->out_file_type = OutputType::ObjFile;
+    this->verbose = false;
+
     for (size_t i = 0; i < args.size(); i++) {
         if (args[i] == "--help") {
             print_help(name);
@@ -34,6 +42,12 @@ Args::Args(int argc, char *argv[]) {
                 if (!outpath.has_value()) outpath = args[++i];
                 else { print_error("'-o'/'--output' already specified"); }
             }
+        } else if (args[i] == "-a" || args[i] == "--assembly") {
+            this->out_file_type = OutputType::AsmFile;
+        } else if (args[i] == "-m" || args[i] == "--module") {
+            this->out_file_type = OutputType::LLIRModule;
+        } else if (args[i] == "-v" || args[i] == "--verbose") {
+            this->verbose = true;
         } else if (!srcpath.has_value()) {
             srcpath = args[i];
         } else {
@@ -44,7 +58,7 @@ Args::Args(int argc, char *argv[]) {
     if (!srcpath.has_value()) {
         print_error("Missing 'source_file'");
     } else {
-        source_file_path = std::move(*srcpath);
-        out_file_path = outpath;
+        this->source_file_path = std::move(*srcpath);
+        this->out_file_path = outpath;
     }
 }

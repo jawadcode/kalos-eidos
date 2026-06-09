@@ -1,12 +1,10 @@
 #ifndef KALOS_EIDOS_COMPILER_H
 #define KALOS_EIDOS_COMPILER_H
 
-#include <cstddef>
 #include <expected>
 #include <map>
 #include <string>
 
-#include <Kaleidoscope.h>
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/IR/BasicBlock.h>
@@ -37,7 +35,6 @@
 template <typename T> using CompileResult = std::expected<T, std::string>;
 
 class Compiler {
-    Box<llvm::orc::KaleidoscopeJIT> jit;
 
     Box<llvm::LLVMContext> context;
     Box<llvm::Module> module;
@@ -45,18 +42,11 @@ class Compiler {
 
     std::map<std::string_view, llvm::AllocaInst *> named_values;
 
-    Box<llvm::FunctionPassManager> fpm;
-    Box<llvm::LoopAnalysisManager> lam;
-    Box<llvm::FunctionAnalysisManager> fam;
-    Box<llvm::CGSCCAnalysisManager> cam;
-    Box<llvm::ModuleAnalysisManager> mam;
-    Box<llvm::PassInstrumentationCallbacks> pic;
-    Box<llvm::StandardInstrumentations> si;
-
     llvm::ExitOnError exit_on_err;
 
     [[nodiscard]] auto create_entry_block_alloca(llvm::Function *fun, llvm::StringRef name)
         -> llvm::AllocaInst *;
+    [[nodiscard]] auto get_function(std::string_view name) -> std::optional<llvm::Function *>;
 
     [[nodiscard]] auto compile_num_lit(const ast::NumLit &num_lit) -> llvm::Value *;
     [[nodiscard]] auto compile_var(const ast::Var &var) -> CompileResult<llvm::Value *>;
@@ -82,6 +72,8 @@ class Compiler {
 
     auto print_module() const -> void;
     auto write_module(const std::string &out_file_path) const -> void;
+
+    auto write_output(const std::string &out_file_path, bool assembly) -> void;
 };
 
 #endif /* KALOS_EIDOS_COMPILER_H */

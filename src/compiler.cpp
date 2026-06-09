@@ -1,37 +1,37 @@
 #include "compiler.h"
 
-#include <cstddef>
+#include <cstdlib>
 #include <expected>
 #include <format>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
+#include <llvm/Support/CodeGen.h>
+#include <llvm/Support/Error.h>
 #include <memory>
+#include <print>
 #include <utility>
 #include <vector>
 
-#include <Kaleidoscope.h>
 #include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/STLExtras.h>
-#include <llvm/ADT/StringRef.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
-#include <llvm/IR/PassManager.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
-#include <llvm/Passes/PassBuilder.h>
-#include <llvm/Passes/StandardInstrumentations.h>
+#include <llvm/MC/TargetRegistry.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
-#include <llvm/Transforms/InstCombine/InstCombine.h>
-#include <llvm/Transforms/Scalar.h>
-#include <llvm/Transforms/Scalar/GVN.h>
-#include <llvm/Transforms/Scalar/Reassociate.h>
-#include <llvm/Transforms/Scalar/SimplifyCFG.h>
-#include <llvm/Transforms/Utils/Mem2Reg.h>
+#include <llvm/Target/TargetOptions.h>
+#include <llvm/TargetParser/Host.h>
+
 #include <swl/variant.hpp>
 
 #include "parser.h"
@@ -40,41 +40,9 @@
 using namespace ast;
 
 Compiler::Compiler() {
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    llvm::InitializeNativeTargetAsmParser();
-
-    this->jit = this->exit_on_err(llvm::orc::KaleidoscopeJIT::Create());
-
     this->context = std::make_unique<llvm::LLVMContext>();
     this->module = std::make_unique<llvm::Module>("KalosJIT", *this->context);
-    this->module->setDataLayout(this->jit->getDataLayout());
     this->builder = std::make_unique<llvm::IRBuilder<>>(*this->context);
-
-    this->fpm = std::make_unique<llvm::FunctionPassManager>();
-    this->lam = std::make_unique<llvm::LoopAnalysisManager>();
-    this->fam = std::make_unique<llvm::FunctionAnalysisManager>();
-    this->cam = std::make_unique<llvm::CGSCCAnalysisManager>();
-    this->mam = std::make_unique<llvm::ModuleAnalysisManager>();
-    this->pic = std::make_unique<llvm::PassInstrumentationCallbacks>();
-    this->si = std::make_unique<llvm::StandardInstrumentations>(*this->context, true);
-    this->si->registerCallbacks(*this->pic, this->mam.get());
-
-    // Promote stack (i.e. alloca) data to registers
-    this->fpm->addPass(llvm::PromotePass());
-    // Simple peephole optimisations like bit-twiddling
-    this->fpm->addPass(llvm::InstCombinePass());
-    // Reassociate commutative expressions
-    this->fpm->addPass(llvm::ReassociatePass());
-    // Use the GVN algorithm to eliminate common sub-expressions
-    this->fpm->addPass(llvm::GVNPass());
-    // Simplify the control flow graph (deleting unreachable/dead blocks, etc)
-    this->fpm->addPass(llvm::SimplifyCFGPass());
-
-    auto pb = llvm::PassBuilder();
-    pb.registerModuleAnalyses(*this->mam);
-    pb.registerFunctionAnalyses(*this->fam);
-    pb.crossRegisterProxies(*this->lam, *this->fam, *this->cam, *this->mam);
 }
 
 auto Compiler::compile_file(const File &file) -> CompileResult<void> {
@@ -106,8 +74,56 @@ auto Compiler::print_module() const -> void { this->module->print(llvm::outs(), 
 
 auto Compiler::write_module(const std::string &out_file_path) const -> void {
     std::error_code error_code;
-    llvm::raw_fd_ostream out_file(llvm::StringRef(out_file_path), error_code);
+    llvm::raw_fd_ostream out_file(out_file_path, error_code);
+    if (error_code) {
+        llvm::errs() << "Could not open file: " << error_code.message();
+        std::exit(1);
+    }
     this->module->print(out_file, nullptr);
+    out_file.flush();
+}
+
+auto Compiler::write_output(const std::string &out_file_path, bool assembly) -> void {
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
+
+    auto target_triple_str = llvm::sys::getDefaultTargetTriple();
+    auto target_triple = llvm::Triple(target_triple_str);
+    this->module->setTargetTriple(target_triple);
+
+    std::string target_lookup_err;
+    auto target = llvm::TargetRegistry::lookupTarget(target_triple, target_lookup_err);
+    if (target == nullptr) { llvm::errs() << target_lookup_err; }
+
+    auto cpu = "generic";
+    auto features = "";
+
+    llvm::TargetOptions target_options;
+    auto target_machine = target->createTargetMachine(target_triple, cpu, features, target_options,
+                                                      llvm::Reloc::PIC_);
+    this->module->setDataLayout(target_machine->createDataLayout());
+    this->module->setTargetTriple(target_triple);
+
+    std::error_code error_code;
+    llvm::raw_fd_ostream out_file(out_file_path, error_code, llvm::sys::fs::OF_None);
+    if (error_code) {
+        llvm::errs() << "Could not open file: " << error_code.message();
+        std::exit(1);
+    }
+
+    llvm::legacy::PassManager pass;
+    auto file_type =
+        assembly ? llvm::CodeGenFileType::AssemblyFile : llvm::CodeGenFileType::ObjectFile;
+    if (target_machine->addPassesToEmitFile(pass, out_file, nullptr, file_type)) {
+        llvm::errs() << "Can't emit a file of this type for target " << target_triple_str;
+        std::exit(1);
+    }
+
+    pass.run(*this->module);
+    out_file.flush();
 }
 
 auto Compiler::compile_fun_def(const FunDef &fun_def) -> CompileResult<llvm::Function *> {
@@ -149,9 +165,6 @@ auto Compiler::compile_fun_def(const FunDef &fun_def) -> CompileResult<llvm::Fun
 
     // Validate the generated code, checking for consistency
     llvm::verifyFunction(*fun);
-
-    // Optimise the function
-    this->fpm->run(*fun, *this->fam);
 
     return fun;
 }

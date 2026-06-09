@@ -42,32 +42,52 @@ auto main(int argc, char *argv[]) -> int {
 
     std::println("Kalos Eidos Compiler v0.1.0");
 
+    auto out_file_type = args.out_file_type == OutputType::ObjFile   ? "ObjFile"
+                         : args.out_file_type == OutputType::AsmFile ? "AsmFile"
+                                                                     : "LLIRModule";
+
+    std::println("source_file_path: {}, out_file_path: {}, out_file_type: {}, verbose: {}",
+                 args.source_file_path, args.out_file_path.value_or("none"), out_file_type,
+                 args.verbose);
+
     auto maybe_source_file_content = read_file(args.source_file_path);
     if (!maybe_source_file_content.has_value()) {
         std::println(stderr, "\x1b[0;31mError\x1b[0m: File '{}' not found", args.source_file_path);
         std::exit(1);
     }
     const std::string source_file_content = std::move(*maybe_source_file_content);
-    std::println(R"(
-Source:
-"""{}""")",
-                 source_file_content);
+    if (args.verbose)
+        std::println(R"(
+    Source:
+    """{}""")",
+                     source_file_content);
     auto parser = Parser(args.source_file_path, source_file_content);
     auto parse_result = parser.parse_file();
     if (parse_result.has_value()) {
-        std::println("\nAST:");
+        if (args.verbose) std::println("\nAST:");
         auto file = std::move(parse_result.value());
-        std::println("# File '{}'", file.file_path);
-        for (auto &item : file.items) std::println("{}", swl::visit(ast::ItemPrinter{}, item));
+        if (args.verbose) std::println("# File '{}'", file.file_path);
+        if (args.verbose)
+            for (auto &item : file.items) std::println("{}", swl::visit(ast::ItemPrinter{}, item));
 
-        std::println("\nLLVM IR:");
+        if (args.verbose) std::println("\nLLVM IR:");
         auto compiler = Compiler();
         auto compile_res = compiler.compile_file(file);
         if (!compile_res.has_value())
             std::println(stderr, "\nCompileError: {}", compile_res.error());
         else {
-            compiler.print_module();
-            if (args.out_file_path.has_value()) compiler.write_module(args.out_file_path.value());
+            if (args.verbose) compiler.print_module();
+            if (args.out_file_path.has_value()) switch (args.out_file_type) {
+                case OutputType::ObjFile:
+                    compiler.write_output(args.out_file_path.value(), false);
+                    break;
+                case OutputType::AsmFile:
+                    compiler.write_output(args.out_file_path.value(), true);
+                    break;
+                case OutputType::LLIRModule:
+                    compiler.write_module(args.out_file_path.value());
+                    break;
+                }
         }
     } else {
         auto err = parse_result.error();

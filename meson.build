@@ -7,7 +7,7 @@ project(
 llvm_dep = dependency(
     'llvm',
     version: '>= 20.0',
-    modules: ['core', 'orcjit', 'native'],
+    modules: ['all'],
     static: true,
 )
 
