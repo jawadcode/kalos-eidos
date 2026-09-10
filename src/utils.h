@@ -1,5 +1,5 @@
-#ifndef KALOS_EIDOS_SPAN_H
-#define KALOS_EIDOS_SPAN_H
+#ifndef KALOS_EIDOS_UTILS_H
+#define KALOS_EIDOS_UTILS_H
 
 #include <algorithm>
 #include <cstddef>
@@ -42,4 +42,4 @@ template <class... Ts> struct match : Ts... {
     using Ts::operator()...;
 };
 
-#endif
+#endif /* KALOS_EIDOS_UTILS_H */
