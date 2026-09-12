@@ -42,9 +42,9 @@ auto main(int argc, char *argv[]) -> int {
 
     std::println("Kalos Eidos Compiler v0.1.0");
 
-    auto out_file_type = args.out_file_type == OutputType::ObjFile   ? "ObjFile"
-                         : args.out_file_type == OutputType::AsmFile ? "AsmFile"
-                                                                     : "LLIRModule";
+    auto out_file_type = args.out_file_type == OutputType::ObjFile ? "ObjFile"
+                       : args.out_file_type == OutputType::AsmFile ? "AsmFile"
+                                                                   : "LLIRModule";
 
     std::println("source_file_path: {}, out_file_path: {}, out_file_type: {}, verbose: {}",
                  args.source_file_path, args.out_file_path.value_or("none"), out_file_type,

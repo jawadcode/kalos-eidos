@@ -10,3 +10,13 @@ AllowShortLoopsOnASingleLine: true
 AlwaysBreakBeforeMultilineStrings: true
 BreakAfterAttributes: Never
 Cpp11BracedListStyle: Block
+AlignConsecutiveBitFields: Consecutive
+AlignConsecutiveMacros: Consecutive
+AlignConsecutiveShortCaseStatements:
+  Enabled:         true
+AlignEscapedNewlines: Left
+AlignOperands: AlignAfterOperator
+AlignTrailingComments:
+  AlignPPAndNotPP: true
+  Kind:            Always
+  OverEmptyLines:  0

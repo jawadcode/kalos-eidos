@@ -38,7 +38,7 @@ Parser::Parser(const std::string file_path, const std::string_view source)
             break;
         }
         case TokenKind::TOK_SEMI: this->lexer.next_token(); break;
-        default: {
+        default:                  {
             auto tle = this->parse_top_level_expr();
             if (!tle.has_value()) return std::unexpected(tle.error());
             items.push_back(std::move(tle.value()));
@@ -114,11 +114,11 @@ auto Parser::parse_basic_expr() -> ParseResultBoxed<Expr> {
     switch (this->lexer.peek_token()) {
     case TokenKind::TOK_NUMBER: return this->parse_num_lit();
     case TokenKind::TOK_LPAREN: return this->parse_grouping();
-    case TokenKind::TOK_IF: return this->parse_if_expr();
-    case TokenKind::TOK_FOR: return this->parse_for_expr();
-    case TokenKind::TOK_VAR: return this->parse_var_expr();
-    case TokenKind::TOK_IDENT: return this->parse_ident_or_call();
-    default: return this->next_error<Box<Expr>>("expression");
+    case TokenKind::TOK_IF:     return this->parse_if_expr();
+    case TokenKind::TOK_FOR:    return this->parse_for_expr();
+    case TokenKind::TOK_VAR:    return this->parse_var_expr();
+    case TokenKind::TOK_IDENT:  return this->parse_ident_or_call();
+    default:                    return this->next_error<Box<Expr>>("expression");
     }
 }
 
@@ -132,19 +132,19 @@ constexpr std::array<TokenKind, 12> BINARY_OPS = {
 static auto tk_to_bop(TokenKind kind) -> BinOp::Op {
     using Op = BinOp::Op;
     switch (kind) {
-    case TokenKind::TOK_COLON: return Op::BINOP_SEQ;
+    case TokenKind::TOK_COLON:  return Op::BINOP_SEQ;
     case TokenKind::TOK_ASSIGN: return Op::BINOP_ASS;
-    case TokenKind::TOK_LT: return Op::BINOP_LT;
-    case TokenKind::TOK_LEQ: return Op::BINOP_LEQ;
-    case TokenKind::TOK_GT: return Op::BINOP_GT;
-    case TokenKind::TOK_GEQ: return Op::BINOP_GEQ;
-    case TokenKind::TOK_EQ: return Op::BINOP_EQ;
-    case TokenKind::TOK_NEQ: return Op::BINOP_NEQ;
-    case TokenKind::TOK_ADD: return Op::BINOP_ADD;
-    case TokenKind::TOK_SUB: return Op::BINOP_SUB;
-    case TokenKind::TOK_MUL: return Op::BINOP_MUL;
-    case TokenKind::TOK_DIV: return Op::BINOP_DIV;
-    default: std::unreachable();
+    case TokenKind::TOK_LT:     return Op::BINOP_LT;
+    case TokenKind::TOK_LEQ:    return Op::BINOP_LEQ;
+    case TokenKind::TOK_GT:     return Op::BINOP_GT;
+    case TokenKind::TOK_GEQ:    return Op::BINOP_GEQ;
+    case TokenKind::TOK_EQ:     return Op::BINOP_EQ;
+    case TokenKind::TOK_NEQ:    return Op::BINOP_NEQ;
+    case TokenKind::TOK_ADD:    return Op::BINOP_ADD;
+    case TokenKind::TOK_SUB:    return Op::BINOP_SUB;
+    case TokenKind::TOK_MUL:    return Op::BINOP_MUL;
+    case TokenKind::TOK_DIV:    return Op::BINOP_DIV;
+    default:                    std::unreachable();
     }
 }
 
@@ -374,11 +374,11 @@ static auto bop_to_string(BinOp::Op op) -> std::string {
     switch (op) {
     case Op::BINOP_SEQ: return ":";
     case Op::BINOP_ASS: return "=";
-    case Op::BINOP_LT: return "<";
+    case Op::BINOP_LT:  return "<";
     case Op::BINOP_LEQ: return "<=";
-    case Op::BINOP_GT: return ">";
+    case Op::BINOP_GT:  return ">";
     case Op::BINOP_GEQ: return ">=";
-    case Op::BINOP_EQ: return "==";
+    case Op::BINOP_EQ:  return "==";
     case Op::BINOP_NEQ: return "!=";
     case Op::BINOP_ADD: return "+";
     case Op::BINOP_SUB: return "-";

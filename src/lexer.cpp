@@ -144,33 +144,33 @@ inline auto Lexer::skip_whitespace() -> void {
 
 const std::string kind_to_string(TokenKind kind) {
     switch (kind) {
-    case TokenKind::TOK_DEF: return "'def'";
+    case TokenKind::TOK_DEF:    return "'def'";
     case TokenKind::TOK_EXTERN: return "'extern'";
-    case TokenKind::TOK_IF: return "'if'";
-    case TokenKind::TOK_THEN: return "'then'";
-    case TokenKind::TOK_ELSE: return "'else'";
-    case TokenKind::TOK_FOR: return "'for'";
-    case TokenKind::TOK_VAR: return "'var'";
-    case TokenKind::TOK_IN: return "'in'";
-    case TokenKind::TOK_IDENT: return "identifier";
+    case TokenKind::TOK_IF:     return "'if'";
+    case TokenKind::TOK_THEN:   return "'then'";
+    case TokenKind::TOK_ELSE:   return "'else'";
+    case TokenKind::TOK_FOR:    return "'for'";
+    case TokenKind::TOK_VAR:    return "'var'";
+    case TokenKind::TOK_IN:     return "'in'";
+    case TokenKind::TOK_IDENT:  return "identifier";
     case TokenKind::TOK_NUMBER: return "numeric literal";
     case TokenKind::TOK_ASSIGN: return "'='";
     case TokenKind::TOK_LPAREN: return "'('";
     case TokenKind::TOK_RPAREN: return "')'";
-    case TokenKind::TOK_COMMA: return "','";
-    case TokenKind::TOK_SEMI: return "';'";
-    case TokenKind::TOK_COLON: return "':'";
-    case TokenKind::TOK_ADD: return "'+'";
-    case TokenKind::TOK_SUB: return "'-'";
-    case TokenKind::TOK_MUL: return "'*'";
-    case TokenKind::TOK_DIV: return "'/'";
-    case TokenKind::TOK_LT: return "'<'";
-    case TokenKind::TOK_LEQ: return "'<='";
-    case TokenKind::TOK_GT: return "'>'";
-    case TokenKind::TOK_GEQ: return "'>='";
-    case TokenKind::TOK_EQ: return "'=='";
-    case TokenKind::TOK_NEQ: return "'!='";
-    case TokenKind::TOK_EOF: return "EOF";
-    case TokenKind::TOK_ERR: return "invalid token";
+    case TokenKind::TOK_COMMA:  return "','";
+    case TokenKind::TOK_SEMI:   return "';'";
+    case TokenKind::TOK_COLON:  return "':'";
+    case TokenKind::TOK_ADD:    return "'+'";
+    case TokenKind::TOK_SUB:    return "'-'";
+    case TokenKind::TOK_MUL:    return "'*'";
+    case TokenKind::TOK_DIV:    return "'/'";
+    case TokenKind::TOK_LT:     return "'<'";
+    case TokenKind::TOK_LEQ:    return "'<='";
+    case TokenKind::TOK_GT:     return "'>'";
+    case TokenKind::TOK_GEQ:    return "'>='";
+    case TokenKind::TOK_EQ:     return "'=='";
+    case TokenKind::TOK_NEQ:    return "'!='";
+    case TokenKind::TOK_EOF:    return "EOF";
+    case TokenKind::TOK_ERR:    return "invalid token";
     }
 }
